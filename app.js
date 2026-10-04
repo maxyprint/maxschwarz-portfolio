@@ -43,10 +43,12 @@
   var DOCK_RESERVE = 120;  // muss zu --dock-h passen
   var PAD = 0;             // kein Mindestabstand mehr — die Icons dürfen
                            // sich fast berühren
-  var MAX_OVERLAP = 0.15;  // zwei Thumbnails dürfen sich höchstens zu
-                           // 15 % ihrer Fläche überschneiden
-  var CLUSTER_W = 0.47;    // Anteil der Nutzfläche, in dem gestapelt wird
-  var CLUSTER_H = 0.57;
+  // Zwei Thumbnails dürfen sich höchstens zu 15 % ihrer Fläche
+  // überschneiden. Der Zielwert liegt etwas darunter, weil die Toleranz
+  // und das Runden der Endposition noch ein paar Zehntel draufgeben.
+  var MAX_OVERLAP = 0.12;
+  var CLUSTER_W = 0.50;    // Anteil der Nutzfläche, in dem gestapelt wird
+  var CLUSTER_H = 0.60;
   var RELAX_ITERATIONS = 150;
   var SETTLE_ITERATIONS = 200;   // Nachlauf ohne Federkraft
   // Toleranz gegen Fließkomma-Reste: ohne sie bleibt nach dem Trennen ein
