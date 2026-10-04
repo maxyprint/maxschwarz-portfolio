@@ -830,6 +830,35 @@
       }
     },
     {
+      "slug": "computerklang",
+      "title": "Computerklang",
+      "cover": {
+        "thumb": "assets/computerklang/computerklang-icon-art-thumb.webp",
+        "file": "assets/computerklang/computerklang-icon-art.webp",
+        "icon": "assets/computerklang/computerklang-icon-art-icon.webp",
+        "name": "computerklang icon.png"
+      },
+      "items": [
+        {
+          "type": "image",
+          "file": "assets/computerklang/computerklang-icon-art.webp",
+          "thumb": "assets/computerklang/computerklang-icon-art-thumb.webp",
+          "name": "computerklang icon.png",
+          "width": 1080,
+          "height": 1080,
+          "format": "Cover"
+        },
+        {
+          "type": "video",
+          "file": "assets/computerklang/intro-7s.mp4",
+          "thumb": "assets/computerklang/intro-7s-thumb.webp",
+          "poster": "assets/computerklang/intro-7s-poster.webp",
+          "name": "INTRO_7s.mp4",
+          "format": "Video"
+        }
+      ]
+    },
+    {
       "slug": "antidote-album-cover",
       "title": "antidote album cover",
       "items": [
