@@ -28,12 +28,19 @@
      dunkler Text, heller Textschatten und eine schwach deckende helle
      Plakette, die erst über den dunklen Partien sichtbar trägt.
      ------------------------------------------------------------------ */
+  /* Plakette bewusst schwach (0.28): sie soll als Hauch lesen, nicht als
+     Kasten. Was die Lesbarkeit über dem dunklen Shirt trägt, ist nicht
+     mehr die Deckkraft, sondern der mehrstufige helle Textschatten
+     darunter — der folgt den Buchstaben und bleibt unsichtbar, solange
+     der Grund hell ist. */
   --icon-label-color: #1b1d20;
-  --icon-label-plate: rgba(255, 255, 255, 0.42);
+  --icon-label-plate: rgba(255, 255, 255, 0.28);
   --icon-label-shadow:
-     0 0 3px rgba(255, 255, 255, 0.95),
-     0 1px 2px rgba(255, 255, 255, 0.9),
-     0 0 8px rgba(255, 255, 255, 0.7);
+     0 0 2px rgba(255, 255, 255, 1),
+     0 0 4px rgba(255, 255, 255, 0.98),
+     0 1px 2px rgba(255, 255, 255, 0.95),
+     0 0 9px rgba(255, 255, 255, 0.85),
+     0 0 14px rgba(255, 255, 255, 0.6);
 
   --ink: #1b1d20;
   --ink-soft: #5c6269;
@@ -113,30 +120,38 @@ body {
 .icon:hover, .icon:focus-visible, .icon[aria-pressed="true"] { z-index: 5; }
 
 /* Cover-Wrapper. Die Box trägt das ECHTE Seitenverhältnis des Bildes —
-   width/height setzt app.js inline aus projects.json, nichts wird
-   beschnitten. Rahmen und Schatten tragen die Trennung vom weißen
-   Hintergrund, damit auch sehr helle Motive (Logos, Sticker) eine
-   sichtbare Kante haben. */
+   width/height setzt app.js inline aus den natürlichen Bildmaßen, nichts
+   wird beschnitten.
+   KEIN Rahmen, kein Kastenschatten, kein Platzhaltergrund: die Datei soll
+   in ihrer eigenen Form stehen, nicht in einem Rechteck. Die Trennung vom
+   weißen Wallpaper leistet stattdessen ein `drop-shadow`-FILTER. Der
+   arbeitet auf dem Alphakanal, folgt also der Silhouette des Motivs statt
+   einem Kasten — bei rechteckigen WebPs ist das die Bildkante, bei
+   freigestellten Logos/Stickern die Kontur. Dezent gehalten, damit er
+   nirgends als Rahmen liest. */
 .icon__thumb {
   position: relative;
   display: block;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
-  background: #fff;
-  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
-              box-shadow 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
-              border-color 0.22s ease;
+  border: 0;
+  background: none;
+  filter: drop-shadow(0 1px 3.5px rgba(0, 0, 0, 0.30));
+  /* Nur die Skalierung wird animiert. Der Schatten ABSICHTLICH nicht: beim
+     ersten Aufbau wechselt der Filter von `none` (Ladezustand) auf den
+     Schatten, und ein animierter Wechsel ließe ihn sichtbar einblenden —
+     21 Mal, zu unterschiedlichen Zeitpunkten. */
+  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1);
 }
-.icon__thumb.is-loaded { background: transparent; }
 .icon__thumb img,
 .icon__glyph {
   display: block;
   width: 100%; height: 100%;
-  border-radius: 2px;
   /* Vollständiges Bild in der proportionsgleichen Box, kein Beschnitt. */
   object-fit: fill;
 }
+/* Solange das Bild nicht geladen ist, bleibt die Zelle LEER statt grau —
+   so kann nach dem Laden auch kein Rechteck zurückbleiben. */
+.icon__thumb:not(.is-loaded) { filter: none; }
+.icon__thumb:not(.is-loaded) img { opacity: 0; }
 /* Fallback-Glyph, wenn ein Projekt kein Bild hat. */
 .icon__glyph {
   display: grid; place-items: center;
@@ -144,35 +159,34 @@ body {
 }
 
 /* Hover: Skalierung statt fester Pixelmaße — funktioniert für jedes
-   Format. Dazu dunkles Overlay und helle Kante. */
-.icon__thumb::before {
-  content: ""; position: absolute; inset: 0;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.25);
-  opacity: 0;
-  transition: opacity 0.22s ease;
-  pointer-events: none;
-}
+   Format. Das frühere dunkle Rechteck-Overlay ist entfallen, es wäre
+   wieder ein Kasten; der Schatten wird stattdessen tiefer, das Icon hebt
+   sich also an. */
 .icon:hover .icon__thumb,
 .icon:focus-visible .icon__thumb {
   transform: scale(var(--hover-scale));
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  filter: drop-shadow(0 4px 9px rgba(0, 0, 0, 0.34));
 }
-.icon:hover .icon__thumb::before,
-.icon:focus-visible .icon__thumb::before { opacity: 1; }
 
-/* Auswahl: blauer Tint über dem Cover. */
-.icon[aria-pressed="true"] .icon__thumb::after {
-  content: ""; position: absolute; inset: 0;
-  border-radius: 2px;
-  background: rgba(2, 88, 208, 0.35);
+/* Auswahl wie im Finder: Hauptsignal ist die blau hinterlegte
+   Namenszeile (weiter unten). Am Bild selbst liegt KEIN Rechteck mehr,
+   sondern ein blauer Saum aus vier versatzlosen drop-shadows — der folgt
+   der Silhouette des Motivs. */
+.icon[aria-pressed="true"] .icon__thumb {
+  filter:
+    drop-shadow( 1.5px 0 0 rgba(2, 88, 208, 0.9))
+    drop-shadow(-1.5px 0 0 rgba(2, 88, 208, 0.9))
+    drop-shadow(0  1.5px 0 rgba(2, 88, 208, 0.9))
+    drop-shadow(0 -1.5px 0 rgba(2, 88, 208, 0.9))
+    drop-shadow(0 1px 3.5px rgba(0, 0, 0, 0.30));
 }
 
 .icon__label {
   max-width: var(--label-w);
-  padding: 2px 5px;
-  border-radius: 3px;
+  /* Großzügiger Radius und etwas mehr Luft: bei so schwacher Deckkraft
+     soll die Plakette als weiche Lichtzone lesen, nicht als Etikett. */
+  padding: 2px 7px;
+  border-radius: 9px;
   font-size: 13px; font-weight: 500; line-height: 1.2em;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -400,8 +414,16 @@ body {
 
 /* ---------------------------------- Großansicht (Quick Look) */
 
+/* HÖHE: `inset: 0` allein genügt NICHT. Ein fixiertes Element bezieht sich
+   auf den LAYOUT-Viewport; der ist auf iOS Safari höher als der sichtbare
+   Bereich, solange Adress- und Werkzeugleiste eingefahren sind — der
+   untere Teil der Großansicht lag damit unter der Leiste. Deshalb oben
+   verankert und die Höhe explizit auf `100dvh`, die dynamische Einheit,
+   die genau den sichtbaren Bereich meint. */
 .quicklook {
-  position: fixed; inset: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 100dvh;
   z-index: 200;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -412,22 +434,34 @@ body {
 }
 @keyframes quicklook-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* Die Bühne nimmt die TATSÄCHLICH übrige Höhe: alles, was nach Polsterung
+   und Namenszeile bleibt. Früher stand hier `88vh` — zusammen mit
+   Polsterung und Zeile ergab das mehr als die Fensterhöhe, hohe Formate
+   liefen deshalb unten heraus. `flex: 1` plus `min-height: 0` lässt den
+   Flex-Algorithmus die Grenze bestimmen, statt sie zu raten. */
 .quicklook__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
   display: flex; align-items: center; justify-content: center;
-  max-width: 92vw; max-height: 88vh;
 }
 .quicklook__stage img, .quicklook__stage video {
   display: block;
-  max-width: 92vw; max-height: 88vh;
+  max-width: 100%; max-height: 100%;
   width: auto; height: auto;
   object-fit: contain;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
 }
 
+/* Die Zeile darf nicht schrumpfen und nicht wachsen — sie ist der feste
+   Teil, gegen den die Bühne gerechnet wird. */
+.quicklook__bar { flex: 0 0 auto; }
+
 /* Schlichte Zeile mit Dateiname, Format und Position. */
 .quicklook__bar {
   display: flex; align-items: baseline; gap: 12px;
-  max-width: 92vw;
+  max-width: 100%;
   font-size: 12px; line-height: 1.4;
   color: rgba(255, 255, 255, 0.92);
   text-align: center;
@@ -609,8 +643,22 @@ body {
 @media (max-width: 760px),
        (pointer: coarse) and (max-width: 1024px),
        (max-height: 520px) {
-  /* Nur hier darf die Seite scrollen: das Icon-Raster. */
-  html, body { height: auto; min-height: 100dvh; overflow: auto; }
+  /* Maße der Icon-Zelle mobil. Dieselbe Streuung wie auf dem Desktop,
+     nur kleiner: Thumbnail-Längsseite 68 statt 92 px, Zelle und
+     Labelbreite entsprechend mit. Die Werte MÜSSEN zu den
+     Mobil-Konstanten in app.js (cfg()) passen. */
+  :root {
+    --icon-w: 114px;
+    --label-w: 110px;
+    --cover-max: 68px;
+    --cover-min: 32px;
+    --dock-h: 96px;
+  }
+
+  /* Nur hier darf die Seite scrollen, und nur SENKRECHT: die Icon-Fläche
+     ist höher als der Viewport (app.js setzt die Höhe), waagerecht wird
+     nie gescrollt. */
+  html, body { height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden; }
 
   /* Der Hintergrund gehört ab hier auf eine FESTE Ebene statt auf <body>.
      Mobil wächst der Body auf die volle Scrollhöhe (bei 21 Projekten über
@@ -628,48 +676,80 @@ body {
     pointer-events: none;
   }
 
-  /* Label-Plakette mobil deutlich kräftiger: das Hochformat-Bild ist oben
-     fast weiß (234) und unten fast schwarz (27), und weil der Hintergrund
-     steht, läuft dasselbe Label beim Scrollen über beides. Dunkler Text
-     plus kräftige helle Plakette hält beides aus; eine Umschaltung der
-     Textfarbe nach Scrollposition wäre für denselben Effekt deutlich mehr
-     bewegliche Teile. */
-  .icon__label { background: rgba(255, 255, 255, 0.82); }
-
-  .desktop { position: static; inset: auto; padding: 16px 12px calc(var(--dock-h) + 20px); }
-
-  /* Drei Spalten ab 360 px Breite. Mit der Desktop-Zellbreite (130 px)
-     kämen auf einem 390er Handy nur zwei Spalten heraus, und eine
-     178 px breite Zelle für ein 92 px breites Thumbnail sieht leer aus.
-     104 px fasst das größte Thumbnail weiterhin ohne Verkleinerung. */
-  .icons {
-    height: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-    gap: 20px 8px;
+  /* Das Hochformat-Bild ist oben fast weiß (234) und unten fast schwarz
+     (27), und weil der Hintergrund STEHT, während die Icon-Fläche
+     darüber scrollt, läuft dasselbe Label im Lauf des Scrollens über
+     beides. Die Plakette bleibt trotzdem dezent (0.34 statt 0.82) — was
+     unten trägt, ist der verstärkte helle Textschatten: er folgt den
+     Buchstaben, bleibt über dem hellen oberen Drittel unsichtbar und
+     setzt den Namen über dem Shirt hart ab. */
+  .icon__label {
+    /* 0.45 statt der frueheren 0.82: ueber dem hellen oberen Drittel ist
+       eine weisse Plakette ohnehin fast unsichtbar (Komposit 243 auf
+       Grund 234), sichtbar wird sie nur ueber den dunklen Partien --
+       genau dort, wo sie gebraucht wird. Mehr als 0.45 wuerde ueber den
+       MITTELTOENEN (Shirt, ~115) wieder als Kasten lesen. */
+    background: rgba(255, 255, 255, 0.45);
+    /* Enger, voll deckender weißer Saum DIREKT an den Buchstaben plus ein
+       weicher Hof darüber hinaus. Der Saum ist das eigentliche
+       Lesbarkeitsmittel über dem Shirt: zwischen Glyphe (#1b1d20) und Saum
+       (Weiß) liegt ein Kontrast von etwa 14:1, unabhängig davon, wie
+       dunkel der Grund dahinter ist. Über dem hellen oberen Drittel
+       verschwindet er, weil er dort dieselbe Farbe wie der Grund hat. */
+    text-shadow:
+      0 0 1px rgba(255, 255, 255, 1),
+      0 0 2px rgba(255, 255, 255, 1),
+      0 0 3px rgba(255, 255, 255, 1),
+      0 1px 2px rgba(255, 255, 255, 1),
+      0 0 8px rgba(255, 255, 255, 0.95),
+      0 0 14px rgba(255, 255, 255, 0.85);
   }
-  /* Das Label füllt die Zelle, statt auf der Desktop-Breite zu beharren.
-     Dazu einen Punkt kleiner: in der 117 px breiten Zelle eines 390er
-     Handys passt "SCHEPPERPEACH" bei 13 px nicht in eine Zeile und wurde
-     mitten im Wort getrennt ("SCHEPPERPEAC-H"). Bei 12 px passt es. */
-  .icon__label { max-width: 100%; font-size: 12px; }
-  .icon {
-    position: static !important;
-    transform: none !important;
-    width: auto;
-    /* Im Raster überlappt nichts — hier ist die ganze Kachel die
-       Trefferfläche, das ist für Finger die bessere Größe. */
-    pointer-events: auto;
-  }
-  /* Kein Hover-Wachstum auf Touch. */
+
+  /* Die Fläche ist jetzt eine echte, absolut positionierte Streufläche
+     wie auf dem Desktop — nur höher als der Viewport. Die Höhe setzt
+     app.js inline auf #icons; `position: relative` macht sie zum
+     Bezugsrahmen der Icon-Positionen. */
+  .desktop { position: relative; inset: auto; padding: 0; }
+  .icons { position: relative; width: 100%; height: auto; }
+
+  /* Einen Punkt kleiner, damit die längsten Titel in der 92 px breiten
+     Plakette weiterhin zwischen Wörtern umbrechen statt mitten im Wort.
+     Weiterhin bis zu DREI Zeilen, nichts wird abgeschnitten. */
+  .icon__label { font-size: 11px; padding: 2px 6px; border-radius: 8px; }
+  .icon { gap: 7px; }
+
+  /* Kein Hover-Wachstum auf Touch — der Grundschatten bleibt. */
   .icon:hover .icon__thumb, .icon:focus-visible .icon__thumb {
     transform: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
-    border-color: rgba(0, 0, 0, 0.14);
+    filter: drop-shadow(0 1px 3.5px rgba(0, 0, 0, 0.30));
   }
-  .icon:hover .icon__thumb::before, .icon:focus-visible .icon__thumb::before { opacity: 0; }
-  /* Im Raster stehen die Thumbnails auf einer gemeinsamen Grundlinie. */
-  .icon__thumb { max-width: 100%; }
+  /* Der blaue Saum der Auswahl muss den Hover-Rücksetzer überschreiben. */
+  .icon[aria-pressed="true"] .icon__thumb,
+  .icon[aria-pressed="true"]:hover .icon__thumb {
+    filter:
+      drop-shadow( 1.5px 0 0 rgba(2, 88, 208, 0.9))
+      drop-shadow(-1.5px 0 0 rgba(2, 88, 208, 0.9))
+      drop-shadow(0  1.5px 0 rgba(2, 88, 208, 0.9))
+      drop-shadow(0 -1.5px 0 rgba(2, 88, 208, 0.9))
+      drop-shadow(0 1px 3.5px rgba(0, 0, 0, 0.30));
+  }
+
+  /* TREFFERFLÄCHE ------------------------------------------------------
+     Die Zelle bleibt `pointer-events: none` (sonst fangen leere
+     Label-Flächen die Klicks verdeckter Icons ab). Getroffen werden also
+     nur Thumbnail und Labeltext. Die kürzeste Thumbnail-Seite ist mobil
+     32 px — zu klein für einen Finger. Diese unsichtbare Fläche um das
+     Thumbnail bringt jedes Icon auf mindestens 44x44 px, OHNE das Bild
+     zu skalieren. */
+  .icon__thumb::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: max(44px, 100%);
+    height: max(44px, 100%);
+    pointer-events: auto;
+  }
 
   /* Dock: kleinere Kacheln, keine Vergrößerung. */
   .dock { bottom: 12px; gap: 4px; padding: 5px 7px; }
@@ -689,9 +769,27 @@ body {
      Die DJ-Karten rücken auf zwei Spalten zusammen. */
   .window__body { padding-left: 12px; padding-right: 12px; }
   .cardgrid { grid-template-columns: repeat(2, 1fr); }
-  .cardgrid > .tile { height: 180px; }
   .tilegrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .tilegrid > .tile { height: 150px; }
+
+  /* KEINE festen Kachelhöhen mobil ---------------------------------------
+     Auf dem Desktop ist die Kachel 190 px hoch und das Bild wird darin
+     einbeschrieben; bei 300 px Spaltenbreite geht das auf. Auf einem
+     390er Handy sind die Spalten aber nur ~170 px breit — ein Hochformat
+     (0,71) bräuchte darin 240 px Höhe und wurde in der 150-px-Kachel auf
+     gut die Hälfte zusammengedrückt, weil `.tile` `overflow: hidden`
+     trägt. Mobil entfällt die Höhe deshalb komplett: die Kachel nimmt
+     das natürliche Seitenverhältnis des Bildes an, nichts wird
+     beschnitten und nichts auf Briefmarkengröße gestaucht. */
+  .tilegrid > .tile, .cardgrid > .tile {
+    height: auto;
+    /* Verhältnis aus den Daten (app.js). Steht keines zur Verfügung,
+       bestimmt das sofort geladene Bild die Höhe selbst. */
+    aspect-ratio: var(--tile-ratio, auto);
+  }
+  .tilegrid > .tile img, .tilegrid > .tile video,
+  .cardgrid > .tile img, .cardgrid > .tile video {
+    width: 100%; height: auto; max-height: none;
+  }
 
   /* Die Ampelknöpfe bleiben optisch 9 px klein — mit dem Daumen trifft
      man das nicht. Eine unsichtbare 44-px-Fläche darüber macht sie

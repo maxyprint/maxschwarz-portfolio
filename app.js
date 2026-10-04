@@ -38,12 +38,40 @@
     return 50 + pulled * 50;
   }
 
-  var ICON_W = 134;        // muss zu --icon-w passen
-  var COVER_MAX = 92;      // muss zu --cover-max passen
-  var COVER_MIN = 40;      // muss zu --cover-min passen
-  var EDGE = 20;           // Abstand zu den Viewport-Rändern
-  var DOCK_RESERVE = 120;  // muss zu --dock-h passen
-  var PAD = 4;             // kleiner Mindestabstand zwischen zwei Thumbnails
+  /* MASSE ----------------------------------------------------------------
+     Zwei Sätze, einer je Layout; die Werte müssen zu den CSS-Variablen
+     passen (Desktop: :root, Mobil: der Mobil-Breakpoint). Mobil ist alles
+     kleiner, und zusätzlich kommt FIELD_VH hinzu: die Streufläche ist dort
+     ein Vielfaches der Viewporthöhe und scrollt senkrecht — bei 21
+     Projekten auf 390 px Breite wäre eine Fläche in Viewporthöhe zu eng,
+     die Spiralsuche fände für einen Teil keinen regelkonformen Platz.
+     ---------------------------------------------------------------------- */
+  var DESKTOP_CFG = {
+    ICON_W: 134, COVER_MAX: 92, COVER_MIN: 40,
+    EDGE: 20, DOCK_RESERVE: 120, PAD: 4,
+    CLUSTER_W: 0.78, CLUSTER_H: 0.82,
+    FIELD_VH: 0,          // 0 = genau die Viewporthöhe, kein Scrollen
+    AVOID_FACE: true
+  };
+  var MOBILE_CFG = {
+    ICON_W: 114, COVER_MAX: 68, COVER_MIN: 32,
+    EDGE: 10, DOCK_RESERVE: 96, PAD: 6,
+    /* Fast die ganze Fläche nutzen: auf 390 px Breite ist jeder Prozent
+       Rand teuer, und die Anker sollen über die GESAMTE Scrollhöhe
+       verteilt sein, nicht in deren Mitte zusammenrücken. */
+    CLUSTER_W: 0.98, CLUSTER_H: 0.99,
+    FIELD_VH: 1.8,
+    /* Die Freihaltezone um das Gesicht ist mobil sinnlos: der Hintergrund
+       STEHT (fixierte Ebene), die Icons wandern beim Scrollen darüber
+       hinweg. Eine Lücke an einer festen Stelle der Scrollfläche läge
+       daher je nach Scrollposition irgendwo — nur nicht zuverlässig auf
+       dem Gesicht. */
+    AVOID_FACE: false
+  };
+
+  function cfg() { return mobileLayout() ? MOBILE_CFG : DESKTOP_CFG; }
+
+  var DOCK_RESERVE = DESKTOP_CFG.DOCK_RESERVE;  // nur noch fuer das Fenster-Dragging
   /* Ein Label darf höchstens zu diesem Anteil seiner Fläche verdeckt
      sein. Die Vorgabe war 25 %, das hat sich als zu viel erwiesen: eine
      Verdeckung am Rand frisst dort ein ganzes Wort — "STRUNK" las sich
@@ -51,8 +79,11 @@
      dass Text verlorengeht, und kosten nachweislich keine Streuung
      (Breite des Haufens bleibt bei 60 %). */
   var MAX_LABEL_COVER = 0.08;
-  var CLUSTER_W = 0.78;    // Anteil der Nutzfläche, in dem gestreut wird
-  var CLUSTER_H = 0.82;
+
+  /* Der gerade gültige Maßsatz. Wird in layoutIcons() (und einmal beim
+     Aufbau) gesetzt, damit boxFromNatural() und fitsHere() nicht jedes Mal
+     die Media Queries abfragen müssen. */
+  var ACTIVE = DESKTOP_CFG;
 
   /* Das Wallpaper trägt ein Porträt. Dieser Bereich wird weitgehend
      freigehalten, damit der Haufen nicht auf dem Gesicht liegt. Angaben
@@ -73,7 +104,7 @@
   var zTop = 50;
   var cascade = 0;
 
-  // Im Mobil-Layout sind Icons ein CSS-Grid und Fenster Vollbild-Sheets.
+  // Mobil: gleiche Streuung, kleinere Masse, scrollende Flaeche; Fenster als Vollbild-Sheet.
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function mobileLayout() {
@@ -93,25 +124,41 @@
      (Querformat, Poster, Cover) bleiben unterscheidbar.
      ---------------------------------------------------------------------- */
   function boxFromNatural(nw, nh) {
-    if (!nw || !nh) return { w: 72, h: 72 };
+    var c = ACTIVE;
+    if (!nw || !nh) return { w: c.COVER_MAX, h: c.COVER_MAX };
     var long = Math.max(nw, nh);
-    var w = Math.round(nw / long * COVER_MAX);
-    var h = Math.round(nh / long * COVER_MAX);
+    var w = Math.round(nw / long * c.COVER_MAX);
+    var h = Math.round(nh / long * c.COVER_MAX);
     // Sehr flache Motive bekommen eine Mindesthöhe; damit die Proportion
     // dabei nicht kippt, wird die andere Seite mitskaliert und danach auf
     // die Zellenbreite begrenzt.
-    if (h < COVER_MIN) { w = Math.round(w * COVER_MIN / h); h = COVER_MIN; }
-    if (w < COVER_MIN) { h = Math.round(h * COVER_MIN / w); w = COVER_MIN; }
-    if (w > ICON_W) { h = Math.round(h * ICON_W / w); w = ICON_W; }
+    if (h < c.COVER_MIN) { w = Math.round(w * c.COVER_MIN / h); h = c.COVER_MIN; }
+    if (w < c.COVER_MIN) { h = Math.round(h * c.COVER_MIN / w); w = c.COVER_MIN; }
+    if (w > c.ICON_W) { h = Math.round(h * c.ICON_W / w); w = c.ICON_W; }
     return { w: w, h: h };
   }
 
   function applyThumbBox(thumb, img) {
+    // Natürliche Maße merken: beim Wechsel des Layouts (Drehen, Resize
+    // über den Breakpoint) wird die Box daraus neu gerechnet.
+    thumb._nw = img.naturalWidth;
+    thumb._nh = img.naturalHeight;
     var size = boxFromNatural(img.naturalWidth, img.naturalHeight);
     thumb.style.width = size.w + "px";
     thumb.style.height = size.h + "px";
-    // Platzhalterton weg, sobald das Bild steht.
+    // Erst jetzt wird das Bild sichtbar und bekommt seinen Schatten —
+    // vorher bleibt die Zelle leer, es gibt also kein graues Rechteck.
     thumb.classList.add("is-loaded");
+  }
+
+  // Alle bereits geladenen Thumbnails auf den aktuellen Maßsatz bringen.
+  function resizeThumbs() {
+    iconLayer.querySelectorAll(".icon__thumb").forEach(function (thumb) {
+      if (!thumb._nw || !thumb._nh) return;
+      var size = boxFromNatural(thumb._nw, thumb._nh);
+      thumb.style.width = size.w + "px";
+      thumb.style.height = size.h + "px";
+    });
   }
 
   // Nach dem Laden der Cover einmal neu anordnen (gebündelt).
@@ -195,7 +242,7 @@
       var to = thumbRect(other), lo = labelRect(other);
 
       // Regel 1: Thumbnails berühren sich nicht.
-      if (overlapsWithPad(tb, to, PAD)) return null;
+      if (overlapsWithPad(tb, to, ACTIVE.PAD)) return null;
 
       // Regel 2a: wie viel verdecken die anderen MEIN Label?
       ownCover += intersectArea(lb, lo) + intersectArea(lb, to);
@@ -250,36 +297,51 @@
   }
 
   function layoutIcons() {
-    if (mobileLayout()) {
-      // Grid-Layout: evtl. gesetzte Inline-Positionen entfernen.
-      iconLayer.querySelectorAll(".icon").forEach(function (el) {
-        el.style.left = el.style.top = el.style.transform = "";
-      });
-      return;
-    }
     if (!projects.length) return;
 
-    var W = desktop.clientWidth;
-    var H = desktop.clientHeight;
+    var mobile = mobileLayout();
+    ACTIVE = cfg();
+    var c = ACTIVE;
+    // Thumbnails erst auf den Maßsatz bringen, dann messen und platzieren.
+    resizeThumbs();
+
+    /* FLÄCHE ------------------------------------------------------------
+       Desktop: genau der Viewport, die Seite scrollt nicht.
+       Mobil: die Breite bleibt die Viewportbreite (waagerecht wird NICHT
+       gescrollt), die Höhe ist ein Vielfaches davon und wird hier auf
+       #icons gesetzt — daraus entsteht die senkrechte Scrollfläche. */
+    var W, H;
+    if (mobile) {
+      W = document.documentElement.clientWidth;
+      H = Math.round(window.innerHeight * c.FIELD_VH);
+      iconLayer.style.height = H + "px";
+    } else {
+      iconLayer.style.height = "";
+      W = desktop.clientWidth;
+      H = desktop.clientHeight;
+    }
 
     // Harte Grenze: kein Icon über den Rand, keines unter das Dock.
     var bounds = {
-      x: EDGE, y: EDGE,
-      w: Math.max(ICON_W, W - 2 * EDGE),
-      h: Math.max(80, H - EDGE - DOCK_RESERVE)
+      x: c.EDGE, y: c.EDGE,
+      w: Math.max(c.ICON_W, W - 2 * c.EDGE),
+      h: Math.max(80, H - c.EDGE - c.DOCK_RESERVE)
     };
 
     // Streufeld, in dem die Anker liegen.
-    var field = { w: bounds.w * CLUSTER_W, h: bounds.h * CLUSTER_H };
+    var field = { w: bounds.w * c.CLUSTER_W, h: bounds.h * c.CLUSTER_H };
     field.x = bounds.x + (bounds.w - field.w) / 2;
     field.y = bounds.y + (bounds.h - field.h) / 2;
 
-    // Freizuhaltende Gesichtszone, bezogen auf den Viewport.
-    var face = { w: W * FACE_W, h: H * FACE_H };
-    face.x = W / 2 - face.w / 2;
-    face.y = H * FACE_CY - face.h / 2;
-    var faceCx = face.x + face.w / 2;
-    var faceCy = face.y + face.h / 2;
+    // Freizuhaltende Gesichtszone, bezogen auf den Viewport. Mobil ohne.
+    var face = null, faceCx = 0, faceCy = 0;
+    if (c.AVOID_FACE) {
+      face = { w: W * FACE_W, h: H * FACE_H };
+      face.x = W / 2 - face.w / 2;
+      face.y = H * FACE_CY - face.h / 2;
+      faceCx = face.x + face.w / 2;
+      faceCy = face.y + face.h / 2;
+    }
 
     var boxes = projects.map(function (p, i) {
       var pos = FIXED_POSITIONS[i % FIXED_POSITIONS.length];
@@ -287,10 +349,10 @@
       var thumb = el.querySelector(".icon__thumb");
       var label = el.querySelector(".icon__label");
       var box = {
-        w: el.offsetWidth || ICON_W,
+        w: el.offsetWidth || c.ICON_W,
         h: el.offsetHeight || 140,
-        tw: (thumb && thumb.offsetWidth) || 72,
-        th: (thumb && thumb.offsetHeight) || 72,
+        tw: (thumb && thumb.offsetWidth) || c.COVER_MAX,
+        th: (thumb && thumb.offsetHeight) || c.COVER_MAX,
         lw: (label && label.offsetWidth) || 100,
         lh: (label && label.offsetHeight) || 30,
         cover: 0
@@ -305,7 +367,7 @@
     /* Die FACE_GUESTS Icons mit dem anker-nächsten Abstand zur
        Gesichtsmitte dürfen hineinragen. Ohne sie wirkte die freie Fläche
        wie ausgestanzt statt wie ein Hintergrund, der durchscheint. */
-    var guests = boxes.slice()
+    var guests = !face ? [] : boxes.slice()
       .sort(function (p, q) {
         return Math.hypot(p.ax - faceCx, p.ay - faceCy) -
                Math.hypot(q.ax - faceCx, q.ay - faceCy);
@@ -355,7 +417,14 @@
       return glyph;
     }
     var el = document.createElement("img");
-    el.src = item.thumb || item.file;
+    /* ICON-FASSUNG zuerst: `cover.icon` ist die 220-px-Variante, genau für
+       diese Darstellung (~92 px, mobil ~68 px) gerechnet. Davor lief hier
+       das 600-px-Thumbnail durch — dieselbe Fläche, aber das Vierfache an
+       Bytes. Rückfall auf `thumb`, dann auf die Vollgrafik, damit ein
+       Datensatz ohne Icon-Fassung nichts kaputt macht.
+       Die Kacheln im Fenster nutzen weiterhin `thumb`, die Großansicht
+       weiterhin `file` — hier ändert sich nur die kleinste Stufe. */
+    el.src = item.icon || item.thumb || item.file;
     el.alt = alt === undefined ? (item.name || "") : alt;
     // Cover NICHT lazy: sie liegen absolut positioniert auf dem Desktop
     // und blieben sonst beim ersten Paint als leere Kacheln stehen.
@@ -415,9 +484,11 @@
 
       var thumb = document.createElement("span");
       thumb.className = "icon__thumb";
-      // Platzhalterbox, bis die echte Proportion des Covers bekannt ist.
-      thumb.style.width = "72px";
-      thumb.style.height = "72px";
+      /* Platzhalterbox, bis die echte Proportion des Covers bekannt ist.
+         Sie ist LEER (CSS blendet das Bild bis `is-loaded` aus und lässt
+         den Schatten weg) — es bleibt also kein graues Rechteck zurück. */
+      thumb.style.width = ACTIVE.COVER_MAX + "px";
+      thumb.style.height = ACTIVE.COVER_MAX + "px";
 
       var cover = coverElement(p);
       thumb.appendChild(cover);
@@ -565,6 +636,19 @@
     btn.type = "button";
     btn.className = "tile";
 
+    /* INTRINSISCHE HÖHE ----------------------------------------------------
+       Mobil haben die Kacheln keine feste Höhe mehr (sonst würden hohe
+       Formate beschnitten), sondern das Seitenverhältnis der Datei. Das muss
+       SCHON VOR dem Laden bekannt sein: eine Kachel ohne Höhe ist 0 px hoch,
+       käme damit nie in den Sichtbereich, und ein `loading="lazy"`-Bild in
+       einer 0-px-Kachel würde nie geladen — die Kachel bliebe für immer leer.
+       Die Maße stehen in projects.json (87 von 89 Dateien). Übergeben wird
+       das als Custom Property, nicht als `aspect-ratio`: das Feed-Raster
+       setzt sein eigenes, gemeinsames Verhältnis und darf hiervon nicht
+       überschrieben werden. */
+    var hasRatio = item.width && item.height;
+    if (hasRatio) btn.style.setProperty("--tile-ratio", item.width + " / " + item.height);
+
     if (item.type === "video") {
       // Stumme Endlosvorschau; der Klick führt in die Großansicht, wo das
       // Video mit Bedienelementen und Ton läuft.
@@ -581,7 +665,12 @@
       btn.classList.add("is-loaded");
       btn.setAttribute("aria-label", item.name + " — Großansicht öffnen");
     } else {
-      btn.appendChild(pictureElement(item.thumb || item.file, item.name));
+      var tileImg = pictureElement(item.thumb || item.file, item.name);
+      /* Zwei Dateien (eine SVG) bringen keine Maße mit. Ohne Verhältnis
+         wäre die Kachel mobil 0 px hoch und das lazy-Bild würde nie laden —
+         also lädt es hier sofort und bestimmt die Höhe selbst. */
+      if (!hasRatio) tileImg.loading = "eager";
+      btn.appendChild(tileImg);
       btn.setAttribute("aria-label", item.name + " — Großansicht öffnen");
     }
 
@@ -1118,6 +1207,9 @@
       }
       // _index = Platz in der Positionsliste, _id = eindeutiger Schlüssel.
       projects.forEach(function (p, i) { p._index = i; p._id = i; });
+      // Maßsatz steht VOR dem Aufbau fest, damit die Platzhalterboxen und
+      // die ersten geladenen Cover schon die richtige Größe bekommen.
+      ACTIVE = cfg();
       buildIcons();
       layoutIcons();
     })
