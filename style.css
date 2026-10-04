@@ -1,0 +1,618 @@
+/* ============================================================
+   maxschwarz.digital — macOS-Desktop-Metapher, Vanilla CSS
+   Maße nach der Detailanalyse der Referenz; kein fremder Code,
+   keine externen Schriften oder CDNs.
+   ============================================================ */
+
+:root {
+  /* ---- HINTERGRUND ---------------------------------------------------
+     --desktop-bg ist die EINZIGE Stelle, an der der Desktop-Hintergrund
+     definiert wird. Weiß liegt als Grundfarbe DAHINTER, damit beim Laden
+     und bei abweichenden Seitenverhältnissen kein grauer Rand entsteht;
+     `cover` beschneidet seitlich, was bei diesem Motiv unkritisch ist,
+     weil außen ohnehin nur Weiß steht.
+     Austausch: hier die URL ersetzen, sonst nichts.
+     ------------------------------------------------------------------ */
+  --desktop-bg: #ffffff url("assets/wallpaper.webp") center / cover no-repeat;
+
+  /* ---- ICON-LABEL ----------------------------------------------------
+     Die Referenz nutzt helle Schrift auf einem dunklen Wallpaper. Das
+     wäre hier falsch: unser Wallpaper ist überwiegend weiß (Ränder ~244),
+     nur das Gesicht (~150) und das Shirt unten (~50) sind dunkler. Also
+     dunkler Text, heller Textschatten und eine schwach deckende helle
+     Plakette, die erst über den dunklen Partien sichtbar trägt.
+     ------------------------------------------------------------------ */
+  --icon-label-color: #1b1d20;
+  --icon-label-plate: rgba(255, 255, 255, 0.62);
+  --icon-label-shadow:
+     0 0 3px rgba(255, 255, 255, 0.95),
+     0 1px 2px rgba(255, 255, 255, 0.9),
+     0 0 8px rgba(255, 255, 255, 0.7);
+
+  --ink: #1b1d20;
+  --ink-soft: #5c6269;
+  --hairline: rgba(0, 0, 0, 0.14);
+  --accent: rgb(2, 88, 208);      /* Auswahl-/Hover-Plakette, Originalwert */
+  /* Ruhiger Platzhalterton, bis ein Bild geladen ist — kein Spinner. */
+  --placeholder: #f1f1f3;
+  /* Dock-Platte: niedrig deckend, weil das Dock über dem dunkelsten Teil
+     des Wallpapers sitzt und der Weichzeichner dort sichtbar arbeiten
+     soll. Auf hellem Grund Richtung 0.45 erhöhen. */
+  --dock-bg: rgba(255, 255, 255, 0.22);
+
+  --dock-h: 120px;        /* Reservezone unten (Dock + Abstand) */
+  --icon-w: 134px;        /* Icon-Zelle = Labelbreite + etwas Luft */
+  --label-w: 130px;
+  --cover-max: 92px;      /* längste Seite eines Thumbnails */
+  --cover-min: 40px;      /* kürzeste Seite, damit flache Banner greifbar bleiben */
+  --hover-scale: 1.12;
+
+  /* Feder-Ersatzkurve mit leichtem Überschwingen */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+* { box-sizing: border-box; }
+
+/* Die Seite selbst scrollt nie — gescrollt wird nur in den Fenstern. */
+html, body {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  /* Die Referenz nutzt SF Pro; die dürfen wir nicht ausliefern. Die
+     System-Schriftfolge trifft sie auf macOS exakt, ohne Webfont. */
+  font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--desktop-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------------------------------- Desktop + Icons */
+
+/* Randloser Desktop — keine Menüleiste. */
+.desktop { position: fixed; inset: 0; }
+
+.icons { position: relative; width: 100%; height: 100%; }
+
+/* Positionen setzt app.js: feste Prozentwerte + translate(-50%, -50%). */
+.icon {
+  position: absolute;
+  width: var(--icon-w);
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;                      /* Abstand Cover → Label */
+  padding: 0;
+  border: 0; background: none;
+  font: inherit; color: inherit;
+  cursor: pointer;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Weil die Icons sich stapeln, darf die LEERE Fläche der Zelle keine
+     Klicks abfangen — sonst wären verdeckte Icons nicht mehr erreichbar.
+     Trefferfläche sind deshalb nur Thumbnail und Labeltext. */
+  pointer-events: none;
+}
+.icon__thumb, .icon__label { pointer-events: auto; }
+
+/* Das Icon unter dem Zeiger, das fokussierte und das ausgewählte kommen
+   nach vorn, damit Cover und Label trotz Überlappung vollständig
+   lesbar sind. */
+.icon:hover, .icon:focus-visible, .icon[aria-pressed="true"] { z-index: 5; }
+
+/* Cover-Wrapper. Die Box trägt das ECHTE Seitenverhältnis des Bildes —
+   width/height setzt app.js inline aus projects.json, nichts wird
+   beschnitten. Rahmen und Schatten tragen die Trennung vom weißen
+   Hintergrund, damit auch sehr helle Motive (Logos, Sticker) eine
+   sichtbare Kante haben. */
+.icon__thumb {
+  position: relative;
+  display: block;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+  background: #fff;
+  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
+              box-shadow 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
+              border-color 0.22s ease;
+}
+.icon__thumb.is-loaded { background: transparent; }
+.icon__thumb img,
+.icon__glyph {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 2px;
+  /* Vollständiges Bild in der proportionsgleichen Box, kein Beschnitt. */
+  object-fit: fill;
+}
+/* Fallback-Glyph, wenn ein Projekt kein Bild hat. */
+.icon__glyph {
+  display: grid; place-items: center;
+  font-size: 22px; color: var(--ink-soft);
+}
+
+/* Hover: Skalierung statt fester Pixelmaße — funktioniert für jedes
+   Format. Dazu dunkles Overlay und helle Kante. */
+.icon__thumb::before {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+.icon:hover .icon__thumb,
+.icon:focus-visible .icon__thumb {
+  transform: scale(var(--hover-scale));
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.icon:hover .icon__thumb::before,
+.icon:focus-visible .icon__thumb::before { opacity: 1; }
+
+/* Auswahl: blauer Tint über dem Cover. */
+.icon[aria-pressed="true"] .icon__thumb::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 2px;
+  background: rgba(2, 88, 208, 0.35);
+}
+
+.icon__label {
+  max-width: var(--label-w);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 13px; font-weight: 500; line-height: 1.2em;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--icon-label-color);
+  text-shadow: var(--icon-label-shadow);
+  background: var(--icon-label-plate);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  /* Umbruch nur zwischen Wörtern. Bis zu DREI Zeilen — lieber ein
+     dreizeiliges Label als ein abgeschnittener Titel. */
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* Plakette bei Hover und Auswahl (Originalwerte). */
+.icon:hover .icon__label,
+.icon:focus-visible .icon__label,
+.icon[aria-pressed="true"] .icon__label {
+  background: var(--accent);
+  color: #fff;
+  text-shadow: none;
+}
+
+.icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+/* Sichtbarer Hinweis, wenn projects.json nicht lädt oder leer ist. */
+.notice {
+  position: absolute; top: 40%; left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0; padding: 12px 18px;
+  max-width: min(420px, 80vw);
+  text-align: center;
+  font-size: 13px; color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------------------------------- Fenster */
+
+.windows { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+.window {
+  position: absolute;
+  pointer-events: auto;
+  width: min(72vw, 1100px);
+  height: 84vh;
+  display: flex; flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(252, 251, 251, 0.94);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  box-shadow: 1px 2px 3px 0 rgba(0, 0, 0, 0.25);
+  transform-origin: center;
+  animation: window-in 0.4s var(--spring) both;
+}
+.window--closing { animation: window-out 0.3s var(--spring) both; }
+
+/* Kleines Fenster für eine einzelne Angabe (Dock-Skills). */
+.window--skill { width: 380px; height: 180px; }
+.skill-line { margin: 0; font-size: 13px; }
+
+@keyframes window-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes window-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.5); }
+}
+
+.titlebar {
+  flex: 0 0 auto;
+  padding: 10px 10px 0;
+  background: rgb(239, 235, 234);
+  cursor: default;
+  -webkit-user-select: none; user-select: none;
+}
+.titlebar__row { display: flex; align-items: center; gap: 7px; }
+/* Trennlinie über die volle Fensterbreite. */
+.titlebar__rule { display: block; height: 1px; margin: 10px -10px 0; background: var(--hairline); }
+
+.lights { display: flex; gap: 5px; }
+.light {
+  width: 9px; height: 9px; border-radius: 50%;
+  padding: 0; border: 0; cursor: pointer;
+}
+.light--close { background: rgb(224, 101, 81); }
+.light--min   { background: rgb(236, 185, 68); }
+.light--zoom  { background: rgb(98, 187, 75); }
+.light:disabled { cursor: default; }
+.light:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.titlebar__title {
+  margin: 0;
+  font-size: 13px; font-weight: 500;
+  text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.window__body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px;
+  /* Scrollbalken ausblenden wie in der Referenz. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.window__body::-webkit-scrollbar { display: none; }
+
+.infohead {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.infohead__thumb {
+  width: 92px; height: 92px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 2px; overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #fff;
+}
+.infohead__thumb img {
+  width: 100%; height: 100%; display: block;
+  object-fit: contain;
+}
+.infohead__name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.infohead__count { font-size: 12px; color: var(--ink-soft); }
+
+/* Kopfzeile: Titelbild, Projektname, Umfangszeile. */
+.infohead__scope {
+  font-size: 12px; line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* Formatgruppe: zurückhaltende Überschrift mit feiner Linie darüber,
+   kein Kasten, keine Farbe. */
+.formatgroup { margin-top: 14px; }
+.formatgroup__head {
+  margin: 0 0 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px; font-weight: 600;
+  color: var(--ink);
+}
+
+/* KACHELN ---------------------------------------------------------------
+   Im Fenster steht die Übersicht. Jede Kachel ist ein Button mit fester
+   Höhe; das Bild wird vollständig einbeschrieben (contain), nie
+   beschnitten. Der helle Grundton ist der ruhige Platzhalter, bis das
+   Bild geladen ist — er verschwindet danach.
+   ------------------------------------------------------------------------ */
+.tile {
+  display: grid; place-items: center;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--placeholder);
+  cursor: pointer;
+  overflow: hidden;
+}
+.tile.is-loaded { background: transparent; }
+.tile img, .tile video {
+  display: block;
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  object-fit: contain;
+}
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Übrige Formate: Raster statt Vollbreite. */
+.tilegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.tilegrid > .tile { height: 190px; }
+
+/* FEED-RASTER: drei gleich breite Spalten, minimaler Abstand. Alle Kacheln
+   teilen dasselbe Seitenverhältnis (aus den Daten), deshalb schließen die
+   Reihen sauber ab. Bleibt auch auf schmalen Fenstern und mobil
+   dreispaltig — sonst verliert das Format seine Aussage. */
+/* Breite begrenzt: ein Profilraster ist schmal. Ohne die Begrenzung
+   würden die drei Kacheln auf volle Fensterbreite wachsen und die
+   Übersicht wieder zerstören, die dieses Fenster leisten soll. */
+.feedgrid {
+  --feed-ratio: 4 / 5;
+  max-width: 560px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  align-items: start;
+}
+.feedgrid__cell { display: block; }
+.feedgrid > .feedgrid__cell > .tile { aspect-ratio: var(--feed-ratio); height: auto; }
+
+/* Dezente Marke unter einem gestapelten Slide. */
+.slidetag {
+  display: block;
+  padding: 3px 0 5px;
+  font-size: 10px; line-height: 1.2;
+  color: var(--ink-soft);
+}
+
+/* DJ-Karten: kompaktes Raster, eine Karte pro Act. Ebenfalls begrenzt,
+   damit die Karten nicht auf Plakatgröße aufgehen. */
+.cardgrid {
+  max-width: 560px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+.cardgrid > .tile { height: 210px; }
+
+/* ---------------------------------- Großansicht (Quick Look) */
+
+.quicklook {
+  position: fixed; inset: 0;
+  z-index: 200;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  animation: quicklook-in 0.18s ease-out both;
+}
+@keyframes quicklook-in { from { opacity: 0; } to { opacity: 1; } }
+
+.quicklook__stage {
+  display: flex; align-items: center; justify-content: center;
+  max-width: 92vw; max-height: 88vh;
+}
+.quicklook__stage img, .quicklook__stage video {
+  display: block;
+  max-width: 92vw; max-height: 88vh;
+  width: auto; height: auto;
+  object-fit: contain;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Schlichte Zeile mit Dateiname, Format und Position. */
+.quicklook__bar {
+  display: flex; align-items: baseline; gap: 12px;
+  max-width: 92vw;
+  font-size: 12px; line-height: 1.4;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  flex-wrap: wrap; justify-content: center;
+}
+.quicklook__name { font-weight: 600; overflow-wrap: anywhere; }
+.quicklook__meta { color: rgba(255, 255, 255, 0.65); white-space: nowrap; }
+
+.quicklook__close {
+  position: absolute; top: 16px; right: 16px;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  padding: 0;
+  font: 400 20px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.quicklook__close:hover { background: rgba(255, 255, 255, 0.24); }
+.quicklook__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ---------------------------------- Dock */
+
+/* Material: stark durchscheinende Platte mit kräftigem Weichzeichner.
+   Das Dock sitzt über dem dunkelsten Teil des Wallpapers (Shirt, ~50),
+   deshalb ist die Deckkraft niedrig — so arbeitet der Weichzeichner
+   sichtbar, statt als milchige Fläche zu wirken. Auf dunklem Grund trägt
+   die helle Innenkante die Abgrenzung; die dunkle Außenkante ist nur noch
+   ein Hauch, damit sie nicht hart schneidet. */
+.dock {
+  position: fixed; bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 5px;
+  padding: 6px 8px;
+  border-radius: 22px;
+  background: var(--dock-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.10);
+  z-index: 80;
+}
+
+/* Quadratische Zellen. Die Zelle behält IMMER ihre Größe — vergrößert
+   wird nur .dock__icon darin, deshalb verschiebt sich beim Hover nichts. */
+.dock__item {
+  position: relative;
+  width: 54px; height: 54px;
+  flex: 0 0 auto;
+  padding: 0; border: 0; background: none;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex; align-items: flex-end; justify-content: center;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.dock__item:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+
+.dock__icon {
+  display: grid; place-items: center;
+  width: 100%; height: 100%;
+  padding: 8%;
+  /* Unten verankert: die Icons wachsen nach oben und bleiben unten bündig. */
+  transform-origin: bottom center;
+  transform: scale(calc(var(--dock-scale, 1) * var(--dock-press, 1)));
+  transition: transform 0.18s ease-out;
+}
+/* Kurzes Eindrücken beim Klick. */
+.dock__item:active .dock__icon { --dock-press: 0.94; }
+
+.dock__icon img {
+  width: 100%; height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* Textfallback, wenn eine Icon-Datei fehlt oder das Manifest ausfällt. */
+.dock__text {
+  display: block;
+  max-width: 72px;
+  font-size: 10px; font-weight: 600; line-height: 1.2;
+  text-align: center;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+.dock:has(> .dock__text) { padding: 10px 16px; }
+
+/* Trennstrich: dünn, 60 % der Dockhöhe, mittig, mit Luft daneben. */
+.dock__sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 32px;           /* ~60 % der 54px-Zelle */
+  margin: 0 6px;
+  align-self: center;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* Schildchen über dem Icon, nur für das Icon unter dem Zeiger. Es liegt
+   außerhalb des skalierten Wrappers und wächst deshalb nicht mit; der
+   Abstand ist so gewählt, dass es über dem auf 1.45 vergrößerten Icon
+   steht. */
+.dock__tip {
+  position: absolute; bottom: calc(100% + 12px); left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px; border-radius: 7px;
+  font-size: 11px; line-height: 1.3; white-space: nowrap;
+  /* Umgedreht: Das Dock liegt über dem dunklen Teil des Wallpapers,
+     dort trägt helle Schrift auf dunkler Plakette besser. */
+  color: #fff;
+  background: rgba(28, 28, 30, 0.78);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+/* Spitze nach unten. */
+.dock__tip::after {
+  content: ""; position: absolute; top: 100%; left: 50%;
+  width: 8px; height: 8px;
+  background: inherit;
+  border: inherit; border-top: 0; border-left: 0;
+  transform: translate(-50%, -5px) rotate(45deg);
+}
+.dock__item.is-hovered .dock__tip,
+.dock__item:focus-visible .dock__tip { opacity: 1; }
+
+/* ---------------------------------- Mobile */
+
+@media (max-width: 760px), (pointer: coarse) and (max-width: 1024px) {
+  /* Nur hier darf die Seite scrollen: das Icon-Raster. */
+  html, body { height: auto; min-height: 100dvh; overflow: auto; }
+
+  .desktop { position: static; inset: auto; padding: 16px 12px calc(var(--dock-h) + 20px); }
+
+  .icons {
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--label-w), 1fr));
+    gap: 20px 10px;
+  }
+  .icon {
+    position: static !important;
+    transform: none !important;
+    width: auto;
+  }
+  /* Kein Hover-Wachstum auf Touch. */
+  .icon:hover .icon__thumb, .icon:focus-visible .icon__thumb {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+    border-color: rgba(0, 0, 0, 0.14);
+  }
+  .icon:hover .icon__thumb::before, .icon:focus-visible .icon__thumb::before { opacity: 0; }
+  /* Im Raster stehen die Thumbnails auf einer gemeinsamen Grundlinie. */
+  .icon__thumb { max-width: 100%; }
+
+  /* Dock: kleinere Kacheln, keine Vergrößerung. */
+  .dock { bottom: 12px; gap: 4px; padding: 5px 7px; }
+  .dock__item { width: 46px; height: 46px; }
+  .dock__icon { transform: none !important; transition: none; }
+  .dock__sep { height: 28px; margin: 0 4px; }
+  .dock__tip { display: none; }
+
+  /* Das Feed-Raster bleibt dreispaltig — es ist die Aussage des Formats.
+     Nur die DJ-Karten rücken auf zwei Spalten zusammen. */
+  .cardgrid { grid-template-columns: repeat(2, 1fr); }
+  .tilegrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .tilegrid > .tile { height: 150px; }
+  .cardgrid > .tile { height: 180px; }
+
+  /* Fenster als Vollbild-Sheet (SPEC): statt 75vw die ganze Fläche. */
+  .window {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0;
+  }
+  .window__body { padding-bottom: calc(var(--dock-h) + 24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock__icon, .dock__tip, .icon__thumb, .icon__thumb::before { transition: none; }
+  /* Keine Vergrößerung bei reduzierter Bewegung. */
+  .dock__icon { transform: none !important; }
+  .window, .window--closing { animation: none; }
+  .quicklook { animation: none; }
+}
