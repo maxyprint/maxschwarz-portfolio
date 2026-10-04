@@ -830,8 +830,8 @@
       }
     },
     {
-      "slug": "computerklang",
-      "title": "Computerklang",
+      "slug": "computerklang-instagram-icon",
+      "title": "Computerklang Instagram-Icon",
       "cover": {
         "thumb": "assets/computerklang/computerklang-icon-art-thumb.webp",
         "file": "assets/computerklang/computerklang-icon-art.webp",
@@ -846,13 +846,25 @@
           "name": "computerklang icon.png",
           "width": 1080,
           "height": 1080,
-          "format": "Cover"
-        },
+          "format": "Icon"
+        }
+      ]
+    },
+    {
+      "slug": "klangfund-intro-animation",
+      "title": "Klangfund Intro Animation",
+      "cover": {
+        "thumb": "assets/klangfund-intro/intro-7s-thumb.webp",
+        "file": "assets/klangfund-intro/intro-7s-poster.webp",
+        "icon": "assets/klangfund-intro/intro-7s-icon.webp",
+        "name": "INTRO_7s.mp4"
+      },
+      "items": [
         {
           "type": "video",
-          "file": "assets/computerklang/intro-7s.mp4",
-          "thumb": "assets/computerklang/intro-7s-thumb.webp",
-          "poster": "assets/computerklang/intro-7s-poster.webp",
+          "file": "assets/klangfund-intro/intro-7s.mp4",
+          "thumb": "assets/klangfund-intro/intro-7s-thumb.webp",
+          "poster": "assets/klangfund-intro/intro-7s-poster.webp",
           "name": "INTRO_7s.mp4",
           "format": "Video"
         }

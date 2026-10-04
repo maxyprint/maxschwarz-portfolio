@@ -113,6 +113,13 @@ body {
   pointer-events: none;
 }
 .icon__thumb, .icon__label { pointer-events: auto; }
+/* DOPPELTIPP ----------------------------------------------------------
+   Die Icons tragen neben dem Einzelklick einen dblclick-Handler. Ohne
+   `touch-action` deutet der Browser einen Doppeltipp ZUSAETZLICH als
+   Doppeltipp-Zoom: das Fenster ging auf UND die Seite zoomte.
+   `manipulation` laesst Scrollen und Pinch-Zoom unberuehrt und schaltet
+   allein den Doppeltipp-Zoom ab. */
+.icon__thumb, .icon__label { touch-action: manipulation; }
 
 /* Das Icon unter dem Zeiger, das fokussierte und das ausgewählte kommen
    nach vorn, damit Cover und Label trotz Überlappung vollständig
@@ -196,10 +203,22 @@ body {
   background: var(--icon-label-plate);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  /* Umbruch nur zwischen Wörtern. Bis zu DREI Zeilen — lieber ein
-     dreizeiliges Label als ein abgeschnittener Titel. */
+  /* Umbruch NUR zwischen Wörtern. Bis zu DREI Zeilen — lieber ein
+     dreizeiliges Label als ein abgeschnittener Titel.
+     `overflow-wrap: break-word` stand hier zuvor und hat genau das
+     verletzt, was der Kommentar verspricht: ein einzelnes Wort, das
+     breiter als --label-w ist, wurde mitten im Wort gebrochen
+     ("COMPUTERKLAN/G"). Jetzt gibt es für einen solchen Fall keine
+     Bruchstelle mehr — stattdessen darf die Plakette so breit werden
+     wie ihr längstes Wort (`min-width: min-content`). Das ist die
+     ruhigere Lösung: die Plakette wächst bei genau einem Titel um
+     wenige Pixel über die Sollbreite (gemessen 110 → 113 px, immer noch
+     innerhalb der 114 px breiten Icon-Zelle), während ein mitten im Wort
+     gebrochener Projektname an jeder Scrollposition als Lesefehler
+     auffällt. Kein Clipping, weil die Box mitwächst. */
+  min-width: min-content;
   word-break: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   hyphens: none;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
   overflow: hidden;
@@ -285,6 +304,7 @@ body {
 .light--zoom  { background: rgb(98, 187, 75); }
 .light:disabled { cursor: default; }
 .light:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.light { touch-action: manipulation; }
 
 .titlebar__title {
   margin: 0;
@@ -365,6 +385,8 @@ body {
   object-fit: contain;
 }
 .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Kein Doppeltipp-Zoom auf den Kacheln (siehe .icon__thumb). */
+.tile { touch-action: manipulation; }
 
 /* Übrige Formate: Raster statt Vollbreite. */
 .tilegrid {
@@ -505,6 +527,7 @@ body {
 .quicklook__nav--next { right: 12px; }
 .quicklook__nav:hover { background: rgba(255, 255, 255, 0.24); }
 .quicklook__nav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.quicklook__close, .quicklook__nav { touch-action: manipulation; }
 
 /* ---------------------------------- Dock */
 
@@ -545,6 +568,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .dock__item:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+.dock__item { touch-action: manipulation; }
 
 .dock__icon {
   display: grid; place-items: center;
@@ -786,9 +810,16 @@ body {
        bestimmt das sofort geladene Bild die Höhe selbst. */
     aspect-ratio: var(--tile-ratio, auto);
   }
-  .tilegrid > .tile img, .tilegrid > .tile video,
-  .cardgrid > .tile img, .cardgrid > .tile video {
-    width: 100%; height: auto; max-height: none;
+  /* `height: auto` stand hier und war eine Sackgasse: ein noch nicht
+     geladenes `loading="lazy"`-Bild hat damit 0 px Hoehe, schneidet den
+     Viewport also nie, wird deshalb nie geladen und behaelt 0 px Hoehe
+     (gemessen: 7 von 21 Kacheln in "Strunk Cow Theme" blieben dauerhaft
+     leer). Das Seitenverhaeltnis traegt die Kachel ohnehin selbst
+     (--tile-ratio, siehe oben), also darf das Bild sie einfach
+     ausfuellen — `contain` haelt es dabei unbeschnitten. */
+  .tilegrid > .tile img, .cardgrid > .tile img,
+  .tilegrid > .tile video, .cardgrid > .tile video {
+    width: 100%; height: 100%; object-fit: contain; max-height: none;
   }
 
   /* Die Ampelknöpfe bleiben optisch 9 px klein — mit dem Daumen trifft
@@ -815,13 +846,46 @@ body {
   .quicklook__nav--next { right: 8px; }
 
   /* Fenster als Vollbild-Sheet (SPEC): statt 75vw die ganze Fläche. */
+/* HOEHE: `height: 100%` loest bei einem FIXIERTEN Element auf iOS gegen
+     den grossen (Layout-)Viewport auf — der untere Sheet-Rand lag damit
+     unter Safaris Leiste. `100dvh` meint genau den sichtbaren Bereich,
+     wie bei .quicklook. Deshalb oben/links/rechts einzeln verankert
+     statt `inset: 0`: ein `bottom: 0` wuerde die Hoehe wieder gegen den
+     Layout-Viewport aufziehen und 100dvh aushebeln.
+     MATERIAL: der vollflaechige `backdrop-filter` des Fensters kostete
+     pro Bild einen Vollbild-Durchgang auf der GPU — ueber einer sehr
+     langen Kachelliste sichtbares Ruckeln, bei Deckkraft 0.94 aber
+     praktisch unsichtbar. Mobil daher deckend und ohne Filter; das Dock
+     behaelt seinen Weichzeichner. */
   .window {
     position: fixed !important;
-    inset: 0 !important;
+    /* Einzeln und je mit !important — eine `inset`-Kurzschreibweise mit
+       !important würde `bottom` mit derselben Priorität mitsetzen und
+       diese Zeilen aushebeln. */
+    top: 0 !important; left: 0 !important; right: 0 !important;
+    bottom: auto !important;
     width: 100% !important;
-    height: 100% !important;
+    height: 100dvh !important;
     border-radius: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgb(252, 251, 251);
   }
+
+  /* Scrollketten unterbrechen: am Ende der Kachelliste bzw. der
+     Grossansicht darf nicht die Seite dahinter weiterscrollen. */
+  .window__body, .quicklook { overscroll-behavior: contain; }
+
+  /* DOCK ----------------------------------------------------------------
+     Die Leiste ist fixiert, die Icon-Flaeche scrollt darunter durch — je
+     nach Scrollstand lag ein Projekt-Icon unter dem Dock und war dort
+     nicht antippbar. Die Platte selbst faengt deshalb keine Ereignisse
+     mehr ab, nur ihre Eintraege; zwischen und neben den Eintraegen gehen
+     Tipps an das Icon darunter.
+     Ausserdem gehoert das Dock mobil UNTER das Vollbild-Sheet
+     (.windows liegt auf z-index 50), nicht darueber. */
+  .dock { pointer-events: none; z-index: 40; }
+  .dock__item { pointer-events: auto; }
   .window__body { padding-bottom: calc(var(--dock-h) + 24px); }
 }
 

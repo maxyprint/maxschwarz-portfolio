@@ -99,6 +99,10 @@
   var EPS = 0.5;
 
   var projects = [];
+  /* Viewport-Signatur des letzten Layouts: Breite und Ausrichtung. Nur
+     deren Änderung rechtfertigt ein Neulayout (siehe resize-Handler). */
+  var lastLayoutW = null;
+  var lastLayoutPortrait = null;
   var selected = null;
   var openWindows = [];  // in Stapelreihenfolge, letztes = oberstes
   var zTop = 50;
@@ -106,6 +110,72 @@
 
   // Mobil: gleiche Streuung, kleinere Masse, scrollende Flaeche; Fenster als Vollbild-Sheet.
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  /* SCROLL-SPERRE ---------------------------------------------------------
+     Mobil ist NICHT <body> der Scroller, sondern <html> (siehe
+     Mobil-Breakpoint: `html, body { height:auto; overflow-y:auto }`).
+     `body.style.overflow = "hidden"` allein blieb deshalb wirkungslos, der
+     Desktop scrollte hinter dem Sheet weiter — und jedes Ein-/Ausfahren von
+     Safaris Adressleiste löste ein `resize` aus. Gesperrt wird daher auf
+     BEIDEN Elementen; die Scrollposition wird gemerkt und beim Freigeben
+     wiederhergestellt, weil `overflow:hidden` auf dem Scroller sie
+     verwirft.
+     ---------------------------------------------------------------------- */
+  var scrollLockY = 0;
+  var scrollLocked = false;
+
+  function lockScroll() {
+    if (scrollLocked) return;
+    scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+    scrollLocked = true;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+  }
+
+  function unlockScroll() {
+    if (!scrollLocked) return;
+    scrollLocked = false;
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+    /* Layout erzwingen, BEVOR zurückgesprungen wird: solange der Scroller
+       noch als `overflow:hidden` gilt, ist seine Scrollhöhe 0 und
+       scrollTo() landet wirkungslos bei 0. */
+    void document.documentElement.scrollHeight;
+    window.scrollTo(0, scrollLockY);
+  }
+
+  /* STABILE VIEWPORTHÖHE --------------------------------------------------
+     Die mobile Streufläche ist ein Vielfaches der Viewporthöhe. Würde sie
+     live aus `window.innerHeight` gerechnet, änderte sie sich bei jedem
+     Ein-/Ausfahren der Adressleiste (gemessen: 85 px, alle Icons wandern).
+     Gemessen wird daher EINMAL je Ausrichtung/Breite über ein unsichtbares
+     Element mit `height: 100dvh`; der Wert wird gecacht und bei reinen
+     Höhenänderungen nicht neu erhoben. Dadurch bleibt die Platzierung
+     deterministisch.
+     ---------------------------------------------------------------------- */
+  var dvhProbe = null;
+  var vhCache = Object.create(null);
+
+  function portraitNow() {
+    return window.matchMedia("(orientation: portrait)").matches;
+  }
+
+  function stableViewportHeight() {
+    var key = (portraitNow() ? "p" : "l") + ":" + document.documentElement.clientWidth;
+    if (vhCache[key] != null) return vhCache[key];
+
+    if (!dvhProbe) {
+      dvhProbe = document.createElement("div");
+      dvhProbe.setAttribute("aria-hidden", "true");
+      dvhProbe.style.cssText =
+        "position:fixed;top:0;left:0;width:0;height:100dvh;" +
+        "visibility:hidden;pointer-events:none;z-index:-1;";
+      document.body.appendChild(dvhProbe);
+    }
+    var h = Math.round(dvhProbe.getBoundingClientRect().height) || window.innerHeight;
+    vhCache[key] = h;
+    return h;
+  }
 
   function mobileLayout() {
     return window.matchMedia("(max-width: 760px)").matches ||
@@ -313,7 +383,7 @@
     var W, H;
     if (mobile) {
       W = document.documentElement.clientWidth;
-      H = Math.round(window.innerHeight * c.FIELD_VH);
+      H = Math.round(stableViewportHeight() * c.FIELD_VH);
       iconLayer.style.height = H + "px";
     } else {
       iconLayer.style.height = "";
@@ -389,6 +459,10 @@
 
     // Für die Selbstprüfung von außen nachvollziehbar machen.
     iconLayer.dataset.layout = unplaced ? "scattered-partial" : "scattered";
+
+    // Signatur merken: nur Breite und Ausrichtung lösen ein Neulayout aus.
+    lastLayoutW = document.documentElement.clientWidth;
+    lastLayoutPortrait = portraitNow();
   }
 
   /* ---------------------------------------------- Hilfen */
@@ -599,7 +673,7 @@
     win.focus();
     // Mobil deckt das Sheet die ganze Fläche ab — der Desktop darf
     // dahinter nicht weiterscrollen.
-    if (mobileLayout()) document.body.style.overflow = "hidden";
+    if (mobileLayout()) lockScroll();
     live.textContent = announce;
   }
 
@@ -851,6 +925,10 @@
     // Klick auf den abgedunkelten Grund schließt; Klicks auf das Bild oder
     // die Zeile darunter nicht.
     el.addEventListener("click", function (e) {
+      /* Der Schließen-Knopf setzt quickLook auf null; derselbe Klick
+         blubbert danach bis hierher weiter. Ohne diese Zeile liefe der
+         Zugriff auf quickLook.stage in einen TypeError. */
+      if (!quickLook) return;
       if (e.target === el || e.target === quickLook.stage) closeQuickLook();
     });
     el.querySelector(".quicklook__close").addEventListener("click", closeQuickLook);
@@ -978,9 +1056,12 @@
     if (next) {
       next.focus();
     } else {
-      document.body.style.overflow = "";
-      // Fokus zurück auf das Icon, das das Fenster geöffnet hat.
+      /* Reihenfolge ist wichtig: der Fokus wird NOCH IM gesperrten Zustand
+         zurückgegeben, sonst scrollt der Browser das Icon beim Fokussieren
+         von sich aus in den Sichtbereich und überschreibt die gemerkte
+         Scrollposition. Erst danach wird freigegeben und zurückgesprungen. */
       if (win.opener && document.contains(win.opener)) win.opener.focus();
+      unlockScroll();
     }
   }
 
@@ -1038,8 +1119,17 @@
     }
   });
 
+  /* RESIZE ----------------------------------------------------------------
+     iOS feuert `resize`, sobald Safaris Adressleiste ein- oder ausfährt.
+     Würde dabei neu gewürfelt, sprängen alle Icons (gemessen: bis 129 px).
+     Neu layoutet wird deshalb nur, wenn sich BREITE oder AUSRICHTUNG
+     wirklich geändert haben — reine Höhenänderungen bleiben folgenlos.
+     ---------------------------------------------------------------------- */
   var resizeTimer;
   window.addEventListener("resize", function () {
+    var w = document.documentElement.clientWidth;
+    var portrait = portraitNow();
+    if (w === lastLayoutW && portrait === lastLayoutPortrait) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(layoutIcons, 120);
   });
