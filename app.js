@@ -11,28 +11,30 @@
   var live = document.getElementById("live");
 
   /* ANKERPUNKTE (top %, left %) ----------------------------------------
-     Bezogen auf das zentrale CLUSTER-Rechteck, nicht auf die ganze
-     Fläche. Gewollt ist ein gedrängter Haufen in der Bildmitte, der fast
-     stapelt — außen bleibt viel frei. Die Werte sind handgesetzt und
-     bewusst UNGLEICHMÄSSIG: manche Punkte liegen dicht beieinander,
-     andere haben etwas Luft. Eine zusätzliche Potenzkurve zieht sie noch
-     einmal zur Mitte, damit die Dichte im Zentrum am höchsten ist und
-     nach außen abnimmt.
+     Bezogen auf das Streufeld, nicht auf die ganze Fläche. Gewollt ist
+     ein locker gestreuter Schreibtisch: stellenweise dicht, stellenweise
+     luftig, außen bleibt Rand frei. Die Werte sind handgesetzt und
+     bewusst UNGLEICHMÄSSIG. Die mittlere Zone ist nach links und rechts
+     aufgeteilt, weil im Wallpaper dort das Porträt sitzt. Eine
+     Potenzkurve zieht die Punkte noch einmal leicht zur Mitte — eine
+     sanfte Betonung, kein Sog.
      Sie legen nicht die Endposition fest, sondern den Startpunkt der
-     Entspannungsschleife. Mehr Projekte als Paare: zyklisch weiter.
+     Platzierung. Mehr Projekte als Paare: zyklisch weiter.
      -------------------------------------------------------------------- */
   var FIXED_POSITIONS = [
-    [46, 48], [52, 42], [41, 55], [55, 53], [49, 36],
-    [38, 44], [58, 45], [44, 62], [60, 58], [35, 58],
-    [50, 60], [63, 38], [33, 40], [56, 66], [43, 31],
-    [67, 52], [30, 52], [54, 28], [39, 70], [70, 62],
-    [22, 66]   // einziger etwas abgesetzter Punkt
+    // obere Zone
+    [ 8, 12], [ 5, 34], [14, 24], [10, 52], [ 6, 70],
+    [16, 62], [12, 86], [22, 44], [20, 78], [26,  8],
+    // mittlere Zone — bewusst links und rechts, die Mitte bleibt frei
+    [38, 10], [46, 26], [34, 74], [44, 90], [56, 16], [52, 80],
+    // untere Zone
+    [70, 30], [66, 56], [78, 12], [74, 70], [86, 44]
   ];
 
   // Zieht einen Prozentwert zur Mitte: aus gleichmäßig wird mittendicht.
   function centerBias(value) {
     var d = (value - 50) / 50;                       // -1 … 1
-    var pulled = Math.sign(d) * Math.pow(Math.abs(d), 1.55);
+    var pulled = Math.sign(d) * Math.pow(Math.abs(d), 1.15);
     return 50 + pulled * 50;
   }
 
@@ -41,21 +43,29 @@
   var COVER_MIN = 40;      // muss zu --cover-min passen
   var EDGE = 20;           // Abstand zu den Viewport-Rändern
   var DOCK_RESERVE = 120;  // muss zu --dock-h passen
-  var PAD = 0;             // kein Mindestabstand mehr — die Icons dürfen
-                           // sich fast berühren
-  // Zwei Thumbnails dürfen sich höchstens zu 15 % ihrer Fläche
-  // überschneiden. Der Zielwert liegt etwas darunter, weil die Toleranz
-  // und das Runden der Endposition noch ein paar Zehntel draufgeben.
-  var MAX_OVERLAP = 0.12;
-  var CLUSTER_W = 0.50;    // Anteil der Nutzfläche, in dem gestapelt wird
-  var CLUSTER_H = 0.60;
-  var RELAX_ITERATIONS = 150;
-  var SETTLE_ITERATIONS = 200;   // Nachlauf ohne Federkraft
-  // Toleranz gegen Fließkomma-Reste: ohne sie bleibt nach dem Trennen ein
-  // Rest von ~1e-13 px übrig, der als Überlappung gewertet würde und die
-  // Schleife nie konvergieren ließe.
+  var PAD = 4;             // kleiner Mindestabstand zwischen zwei Thumbnails
+  /* Ein Label darf höchstens zu diesem Anteil seiner Fläche verdeckt
+     sein. Die Vorgabe war 25 %, das hat sich als zu viel erwiesen: eine
+     Verdeckung am Rand frisst dort ein ganzes Wort — "STRUNK" las sich
+     als "TRUNK". 8 % lassen die Überlappung weiterhin sichtbar zu, ohne
+     dass Text verlorengeht, und kosten nachweislich keine Streuung
+     (Breite des Haufens bleibt bei 60 %). */
+  var MAX_LABEL_COVER = 0.08;
+  var CLUSTER_W = 0.78;    // Anteil der Nutzfläche, in dem gestreut wird
+  var CLUSTER_H = 0.82;
+
+  /* Das Wallpaper trägt ein Porträt. Dieser Bereich wird weitgehend
+     freigehalten, damit der Haufen nicht auf dem Gesicht liegt. Angaben
+     als Anteil des VIEWPORTS. Die Zone deckt Gesicht und Kinnpartie ab
+     (y 37–79 %); Kappe und Stirn darüber dürfen überlagert werden.
+     Die Freihaltung ist kein hartes Verbot: FACE_GUESTS Icons
+     dürfen hineinragen, sonst wirkte die Fläche wie ausgestanzt statt
+     wie ein Hintergrund, der durchscheint. */
+  var FACE_W = 0.26;
+  var FACE_H = 0.42;
+  var FACE_CY = 0.58;
+  var FACE_GUESTS = 2;     // so viele Icons dürfen trotzdem hineinragen
   var EPS = 0.5;
-  var ANCHOR_PULL = 0.03;  // wie stark ein Icon zu seinem Anker zurückzieht
 
   var projects = [];
   var selected = null;
@@ -68,7 +78,9 @@
 
   function mobileLayout() {
     return window.matchMedia("(max-width: 760px)").matches ||
-           window.matchMedia("(pointer: coarse) and (max-width: 1024px)").matches;
+           window.matchMedia("(pointer: coarse) and (max-width: 1024px)").matches ||
+           // Flache Viewports (Querformat): zu wenig Höhe für die Streuung.
+           window.matchMedia("(max-height: 520px)").matches;
   }
 
   /* ---------------------------------------------- Icon-Positionierung */
@@ -119,103 +131,46 @@
      Box aus Thumbnail und Label plus PAD. Komplett deterministisch, kein
      Math.random.
      -------------------------------------------------------------------- */
-  /* TRENNUNG --------------------------------------------------------------
-     Geprüft wird nur noch das THUMBNAIL, nicht die volle Box mit Label —
-     Label-Boxen dürfen sich frei überlappen. Und auch Thumbnails dürfen
-     sich überschneiden, nur eben begrenzt: höchstens MAX_OVERLAP ihrer
-     Fläche. Geschoben wird daher nicht bis zur Berührung, sondern nur so
-     weit, bis die Überschneidung wieder unter der Grenze liegt. Genau das
-     erzeugt den gestapelten Eindruck statt einer sauberen Verteilung.
+  /* PLATZIERUNG -----------------------------------------------------------
+     Die Icons werden der Reihe nach gesetzt: jedes sucht von seinem Anker
+     aus auf einer Spirale nach außen den NÄCHSTEN Platz, der die Regeln
+     einhält. Das Verfahren ist deterministisch (feste Ankerliste, feste
+     Richtungen, feste Schrittweite), terminiert immer und braucht keine
+     Iteration, die sich festfahren kann.
+
+     Zwei unterschiedlich strenge Regeln:
+     1. THUMBNAILS überlappen sich GAR NICHT; zwischen ihnen bleiben PAD
+        Pixel Luft. Keine Arbeit verdeckt eine andere.
+     2. LABELS dürfen sich leicht überlappen — aber ein Label darf INSGESAMT
+        höchstens MAX_LABEL_COVER seiner Fläche von fremden Labels und
+        Thumbnails verdeckt sein. Gerechnet wird kumulativ, nicht je Paar:
+        sonst könnten drei Nachbarn zusammen ein Label fast zudecken.
      ------------------------------------------------------------------------ */
 
   // Thumbnail-Rechteck einer Box: oben, horizontal mittig.
   function thumbRect(box) {
+    return { x: box.x + (box.w - box.tw) / 2, y: box.y, w: box.tw, h: box.th };
+  }
+
+  // Label-Rechteck: unten, horizontal mittig.
+  function labelRect(box) {
     return {
-      x: box.x + (box.w - box.tw) / 2,
-      y: box.y,
-      w: box.tw,
-      h: box.th
+      x: box.x + (box.w - box.lw) / 2,
+      y: box.y + box.h - box.lh,
+      w: box.lw,
+      h: box.lh
     };
   }
 
-  // Wie weit müssen zwei Boxen auseinander, damit die Grenze eingehalten
-  // ist? Gibt 0 zurück, wenn alles im Rahmen liegt.
-  function excess(a, b) {
-    var ra = thumbRect(a), rb = thumbRect(b);
-    var ox = Math.min(ra.x + ra.w, rb.x + rb.w) - Math.max(ra.x, rb.x) + PAD;
-    var oy = Math.min(ra.y + ra.h, rb.y + rb.h) - Math.max(ra.y, rb.y) + PAD;
-    if (ox <= EPS || oy <= EPS) return null;
-
-    var area = ox * oy;
-    var limit = MAX_OVERLAP * Math.min(ra.w * ra.h, rb.w * rb.h);
-    if (area <= limit) return null;
-
-    // Auf welcher Achse ist der nötige Weg kürzer?
-    var needX = ox - limit / oy;
-    var needY = oy - limit / ox;
-    // Bruchteile eines Pixels gelten als erfüllt. Ohne diese Toleranz
-    // fordert die Schleife ewig Wege von ~1e-9 px ein und konvergiert nie.
-    if (Math.min(needX, needY) <= EPS) return null;
-    return needX <= needY
-      ? { axis: "x", amount: needX, a: ra, b: rb }
-      : { axis: "y", amount: needY, a: ra, b: rb };
+  function intersectArea(a, b) {
+    var ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    var oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    return (ox > 0 && oy > 0) ? ox * oy : 0;
   }
 
-  function separate(boxes, bounds) {
-    var moved = false, i, j;
-
-    for (i = 0; i < boxes.length; i++) {
-      for (j = i + 1; j < boxes.length; j++) {
-        var a = boxes[i], b = boxes[j];
-        var e = excess(a, b);
-        if (!e) continue;
-
-        moved = true;
-        if (e.axis === "x") {
-          var sx = (e.a.x + e.a.w / 2 <= e.b.x + e.b.w / 2) ? -1 : 1;
-          a.x += sx * e.amount / 2;
-          b.x -= sx * e.amount / 2;
-        } else {
-          var sy = (e.a.y + e.a.h / 2 <= e.b.y + e.b.h / 2) ? -1 : 1;
-          a.y += sy * e.amount / 2;
-          b.y -= sy * e.amount / 2;
-        }
-      }
-    }
-
-    for (i = 0; i < boxes.length; i++) clampBox(boxes[i], bounds);
-    return moved;
-  }
-
-  function relax(boxes, bounds) {
-    var i, it;
-
-    // Phase 1: entzerren und gleichzeitig zum Anker zurückziehen. Die
-    // Federkraft wird linear auf null heruntergefahren, sonst zieht sie am
-    // Ende die Überschneidungen wieder herein.
-    for (it = 0; it < RELAX_ITERATIONS; it++) {
-      var moved = separate(boxes, bounds);
-      var pull = ANCHOR_PULL * (1 - it / RELAX_ITERATIONS);
-      for (i = 0; i < boxes.length; i++) {
-        var a = boxes[i];
-        a.x += (a.ax - a.x) * pull;
-        a.y += (a.ay - a.y) * pull;
-        clampBox(a, bounds);
-      }
-      if (!moved && pull < 0.001) break;
-    }
-
-    // Phase 2: nur noch entzerren, bis die Grenze überall eingehalten ist.
-    for (it = 0; it < SETTLE_ITERATIONS; it++) {
-      if (!separate(boxes, bounds)) break;
-    }
-  }
-
-  function atYLimit(box, b) {
-    return box.y <= b.y + EPS || box.y + box.h >= b.y + b.h - EPS;
-  }
-  function atXLimit(box, b) {
-    return box.x <= b.x + EPS || box.x + box.w >= b.x + b.w - EPS;
+  function overlapsWithPad(a, b, pad) {
+    return Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) + pad > EPS &&
+           Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + pad > EPS;
   }
 
   function clampBox(box, b) {
@@ -223,35 +178,75 @@
     box.y = Math.min(Math.max(box.y, b.y), b.y + b.h - box.h);
   }
 
-  // Liegt irgendwo noch zu viel Überschneidung?
-  function tooMuchOverlap(boxes) {
-    for (var i = 0; i < boxes.length; i++) {
-      for (var j = i + 1; j < boxes.length; j++) {
-        if (excess(boxes[i], boxes[j])) return true;
-      }
-    }
-    return false;
+  function insideFace(box, face) {
+    return face ? intersectArea(thumbRect(box), face) > 0 : false;
   }
 
-  /* Sicherheitsnetz: Konvergiert die Entzerrung nicht (sehr kleiner
-     Viewport oder sehr viele Projekte), wird deterministisch auf ein
-     zentriertes Raster ausgewichen — überschneidungsfrei per Konstruktion. */
-  function gridFallback(boxes, bounds) {
-    var cw = 0, ch = 0, i;
-    for (i = 0; i < boxes.length; i++) {
-      cw = Math.max(cw, boxes[i].w);
-      ch = Math.max(ch, boxes[i].h);
-    }
-    var cols = Math.max(1, Math.floor(bounds.w / cw));
-    var rows = Math.ceil(boxes.length / cols);
-    var offX = bounds.x + Math.max(0, (bounds.w - cols * cw) / 2);
-    var offY = bounds.y + Math.max(0, (bounds.h - rows * ch) / 2);
+  /* Passt die Box an ihrer aktuellen Position neben alle bereits
+     gesetzten? Liefert die Verdeckungsbeiträge mit zurück, damit der
+     Aufrufer sie nach dem Zuschlag verbuchen kann. */
+  function fitsHere(box, placed) {
+    var tb = thumbRect(box), lb = labelRect(box);
+    var ownCover = 0;
+    var added = [];
 
-    for (i = 0; i < boxes.length; i++) {
-      boxes[i].x = offX + (i % cols) * cw;
-      boxes[i].y = offY + Math.floor(i / cols) * ch;
-      clampBox(boxes[i], bounds);
+    for (var i = 0; i < placed.length; i++) {
+      var other = placed[i];
+      var to = thumbRect(other), lo = labelRect(other);
+
+      // Regel 1: Thumbnails berühren sich nicht.
+      if (overlapsWithPad(tb, to, PAD)) return null;
+
+      // Regel 2a: wie viel verdecken die anderen MEIN Label?
+      ownCover += intersectArea(lb, lo) + intersectArea(lb, to);
+
+      // Regel 2b: wie viel verdecke ICH von deren Label?
+      var onOther = intersectArea(lo, lb) + intersectArea(lo, tb);
+      if (other.cover + onOther > MAX_LABEL_COVER * lo.w * lo.h) return null;
+      added.push({ box: other, area: onOther });
     }
+
+    if (ownCover > MAX_LABEL_COVER * lb.w * lb.h) return null;
+    return { cover: ownCover, added: added };
+  }
+
+  /* Spiralsuche ab dem Anker. Schrittweite SEARCH_STEP, SEARCH_DIRS
+     Richtungen, die mit wachsendem Radius leicht mitdrehen — dadurch
+     entstehen keine sichtbaren Speichen. */
+  var SEARCH_STEP = 6;
+  var SEARCH_DIRS = 16;
+  var SEARCH_MAX = 900;
+
+  function placeBox(box, placed, bounds, face, mayEnterFace) {
+    for (var pass = 0; pass < 2; pass++) {
+      // Erster Durchgang meidet die Gesichtszone, der zweite erlaubt sie —
+      // sonst fände ein eingekreistes Icon gar keinen Platz.
+      var avoidFace = (pass === 0) && !mayEnterFace;
+
+      for (var r = 0; r <= SEARCH_MAX; r += SEARCH_STEP) {
+        var steps = (r === 0) ? 1 : SEARCH_DIRS;
+        for (var k = 0; k < steps; k++) {
+          var angle = (k / SEARCH_DIRS) * Math.PI * 2 + r * 0.11;
+          box.x = box.ax + Math.cos(angle) * r;
+          box.y = box.ay + Math.sin(angle) * r;
+          clampBox(box, bounds);
+
+          if (avoidFace && insideFace(box, face)) continue;
+
+          var fit = fitsHere(box, placed);
+          if (fit) {
+            box.cover = fit.cover;
+            fit.added.forEach(function (entry) { entry.box.cover += entry.area; });
+            return true;
+          }
+        }
+      }
+    }
+    // Nichts gefunden: auf dem Anker stehen lassen (kommt bei dieser
+    // Projektzahl nicht vor, ist aber die ehrliche Rückfallebene).
+    box.x = box.ax; box.y = box.ay;
+    clampBox(box, bounds);
+    return false;
   }
 
   function layoutIcons() {
@@ -274,37 +269,55 @@
       h: Math.max(80, H - EDGE - DOCK_RESERVE)
     };
 
-    // Darin das Cluster-Rechteck, in dem sich alles drängt.
-    var cluster = {
-      w: bounds.w * CLUSTER_W,
-      h: bounds.h * CLUSTER_H
-    };
-    cluster.x = bounds.x + (bounds.w - cluster.w) / 2;
-    cluster.y = bounds.y + (bounds.h - cluster.h) / 2;
+    // Streufeld, in dem die Anker liegen.
+    var field = { w: bounds.w * CLUSTER_W, h: bounds.h * CLUSTER_H };
+    field.x = bounds.x + (bounds.w - field.w) / 2;
+    field.y = bounds.y + (bounds.h - field.h) / 2;
+
+    // Freizuhaltende Gesichtszone, bezogen auf den Viewport.
+    var face = { w: W * FACE_W, h: H * FACE_H };
+    face.x = W / 2 - face.w / 2;
+    face.y = H * FACE_CY - face.h / 2;
+    var faceCx = face.x + face.w / 2;
+    var faceCy = face.y + face.h / 2;
 
     var boxes = projects.map(function (p, i) {
       var pos = FIXED_POSITIONS[i % FIXED_POSITIONS.length];
       var el = p._icon;
       var thumb = el.querySelector(".icon__thumb");
+      var label = el.querySelector(".icon__label");
       var box = {
         w: el.offsetWidth || ICON_W,
         h: el.offsetHeight || 140,
         tw: (thumb && thumb.offsetWidth) || 72,
-        th: (thumb && thumb.offsetHeight) || 72
+        th: (thumb && thumb.offsetHeight) || 72,
+        lw: (label && label.offsetWidth) || 100,
+        lh: (label && label.offsetHeight) || 30,
+        cover: 0
       };
-      // Anker im Cluster-Rechteck, zusätzlich zur Mitte gezogen.
-      box.ax = cluster.x + cluster.w * centerBias(pos[1]) / 100 - box.w / 2;
-      box.ay = cluster.y + cluster.h * centerBias(pos[0]) / 100 - box.h / 2;
+      box.ax = field.x + field.w * centerBias(pos[1]) / 100 - box.w / 2;
+      box.ay = field.y + field.h * centerBias(pos[0]) / 100 - box.h / 2;
       box.x = box.ax;
       box.y = box.ay;
-      clampBox(box, bounds);
-      box.ax = box.x; box.ay = box.y;
       return box;
     });
 
-    relax(boxes, bounds);
-    var fallback = tooMuchOverlap(boxes);
-    if (fallback) gridFallback(boxes, bounds);
+    /* Die FACE_GUESTS Icons mit dem anker-nächsten Abstand zur
+       Gesichtsmitte dürfen hineinragen. Ohne sie wirkte die freie Fläche
+       wie ausgestanzt statt wie ein Hintergrund, der durchscheint. */
+    var guests = boxes.slice()
+      .sort(function (p, q) {
+        return Math.hypot(p.ax - faceCx, p.ay - faceCy) -
+               Math.hypot(q.ax - faceCx, q.ay - faceCy);
+      })
+      .slice(0, FACE_GUESTS);
+
+    var placed = [];
+    var unplaced = 0;
+    boxes.forEach(function (box) {
+      if (!placeBox(box, placed, bounds, face, guests.indexOf(box) > -1)) unplaced++;
+      placed.push(box);
+    });
 
     projects.forEach(function (p, i) {
       p._icon.style.transform = "none";
@@ -313,7 +326,7 @@
     });
 
     // Für die Selbstprüfung von außen nachvollziehbar machen.
-    iconLayer.dataset.layout = fallback ? "grid-fallback" : "clustered";
+    iconLayer.dataset.layout = unplaced ? "scattered-partial" : "scattered";
   }
 
   /* ---------------------------------------------- Hilfen */
@@ -727,6 +740,11 @@
 
     el.innerHTML =
       '<button class="quicklook__close" type="button" aria-label="Großansicht schließen">×</button>' +
+      /* Pfeil-Knöpfe: auf dem Desktop eine Bequemlichkeit, auf dem Handy
+         die einzige Möglichkeit zu blättern — dort gibt es keine
+         Pfeiltasten. Sie liegen über dem Grund, nicht über dem Bild. */
+      '<button class="quicklook__nav quicklook__nav--prev" type="button" aria-label="Vorherige Datei">\u2039</button>' +
+      '<button class="quicklook__nav quicklook__nav--next" type="button" aria-label="Nächste Datei">\u203a</button>' +
       '<div class="quicklook__stage"></div>' +
       '<div class="quicklook__bar">' +
         '<span class="quicklook__name"></span>' +
@@ -747,6 +765,31 @@
       if (e.target === el || e.target === quickLook.stage) closeQuickLook();
     });
     el.querySelector(".quicklook__close").addEventListener("click", closeQuickLook);
+    el.querySelector(".quicklook__nav--prev").addEventListener("click", function (e) {
+      e.stopPropagation(); stepQuickLook(-1);
+    });
+    el.querySelector(".quicklook__nav--next").addEventListener("click", function (e) {
+      e.stopPropagation(); stepQuickLook(1);
+    });
+
+    /* Wischen nach links/rechts blättert. Schwelle 45 px, und die
+       waagerechte Strecke muss die senkrechte deutlich übertreffen —
+       sonst löst schon ein Scrollversuch einen Bildwechsel aus. */
+    var swipeX = 0, swipeY = 0, swiping = false;
+    el.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1) { swiping = false; return; }
+      swipeX = e.touches[0].clientX;
+      swipeY = e.touches[0].clientY;
+      swiping = true;
+    }, { passive: true });
+    el.addEventListener("touchend", function (e) {
+      if (!swiping) return;
+      swiping = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - swipeX, dy = t.clientY - swipeY;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      stepQuickLook(dx < 0 ? 1 : -1);
+    }, { passive: true });
 
     document.body.appendChild(el);
     showQuickLookItem(index);
@@ -785,6 +828,12 @@
     quickLook.el.querySelector(".quicklook__name").textContent = item.name;
     quickLook.el.querySelector(".quicklook__meta").textContent =
       (item.format || "–") + " · " + (quickLook.index + 1) + " / " + items.length;
+
+    // Bei einer einzelnen Datei gibt es nichts zu blättern.
+    var single = items.length < 2;
+    quickLook.el.querySelectorAll(".quicklook__nav").forEach(function (b) {
+      b.hidden = single;
+    });
   }
 
   function stepQuickLook(delta) {
