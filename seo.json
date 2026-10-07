@@ -1,0 +1,163 @@
+{
+  "_hinweis": "Redaktionelle SEO-Texte. Getrennt von projects.json (das aus den Asset-Ordnern generiert wird). Der Build-Script merged beides. Texte hier von Hand pflegen.",
+  "site": {
+    "name": "Max Schwarz",
+    "url": "https://maxschwarz.digital",
+    "jobTitle": "Grafikdesigner & Motion Designer",
+    "city": "Wien",
+    "country": "AT",
+    "email": "maxschwarz727@icloud.com",
+    "instagram": "https://www.instagram.com/maybmax.archive/",
+    "title": "Max Schwarz — Grafikdesign & Artwork für Musik, Clubs und Events in Wien",
+    "description": "Grafikdesign aus Wien für Musik und Nachtleben: Album-Cover, Event-Poster, Club-Flyer, Social-Media-Design und Motion Design für DJs, Bands, Labels und Veranstalter.",
+    "ogImage": "assets/antidote-album-cover/antidote-album-cover.webp",
+    "intro": [
+      "Ich bin Max Schwarz, Grafik- und Motion Designer in Wien. Ich gestalte Artwork für Musik und Nachtleben: Album- und EP-Cover, Event-Poster und Club-Flyer, Instagram-Feeds, Stories und Event-Banner, Sticker und Merch-Grafiken sowie kurze Intro- und Post-Animationen.",
+      "Gearbeitet habe ich unter anderem für Club-Reihen, Festivals, DJ-Kollektive und Musikprojekte — von der einzelnen Cover-Grafik bis zum durchgehenden visuellen Auftritt einer Veranstaltungsreihe über Feed, Story, Poster und Website-Banner.",
+      "Anfragen für Grafikdesign, Cover-Artwork, Event- und Social-Media-Design in Wien und im gesamten deutschsprachigen Raum gern per Mail oder über Instagram."
+    ],
+    "services": [
+      {
+        "name": "Album- & EP-Cover-Design",
+        "text": "Cover-Artwork für Alben, EPs und Singles inklusive Spotify- und Streaming-Mockups — vom Konzept bis zur druck- und uploadfertigen Datei."
+      },
+      {
+        "name": "Event-Poster & Club-Flyer",
+        "text": "Poster in A2 und A6, Flyer, Lineup-Grafiken und Facebook-Event-Banner für Clubnächte, Partyreihen und Festivals."
+      },
+      {
+        "name": "Social-Media-Design",
+        "text": "Instagram-Feed-Raster, Stories, DJ-Ankündigungskarten und Profil-Icons — als zusammenhängendes Set, nicht als Einzelposts."
+      },
+      {
+        "name": "Motion Design & Animation",
+        "text": "Kurze Intro-Animationen, animierte Instagram-Posts und Logo-Reveals für Musikprojekte und Veranstalter."
+      },
+      {
+        "name": "Sticker, Merch & Print",
+        "text": "Sticker-Designs für Bands und DJs, Merch-Grafiken, Visitenkarten und sonstige Printsachen."
+      },
+      {
+        "name": "Logo & visuelle Identität",
+        "text": "Logos und Wortmarken für Musikprojekte, Kollektive und kleine Brands, inklusive Anwendung über alle Kanäle."
+      }
+    ]
+  },
+  "projects": {
+    "strunk": {
+      "title": "STRUNK — Club-Reihe Visuals & Instagram-Feed",
+      "leistung": "Event-Design & Social-Media-Design",
+      "description": "Visueller Auftritt für die Club-Reihe STRUNK: Instagram-Feed-Raster für Preparty, Ballsaal und Fausterei, Einzelposts und DJ-Grafiken. Ein durchgehendes Bildsystem über mehrere Veranstaltungen hinweg."
+    },
+    "strunk-cow-theme": {
+      "title": "STRUNK Cow Theme — Event-Kampagne über alle Kanäle",
+      "leistung": "Event-Design & Social-Media-Design",
+      "description": "Komplette Kampagne zum Cow-Theme von STRUNK: Instagram-Feed-Raster, Story, Facebook-Event-Banner, Website-Grafik und ein Satz DJ-Ankündigungskarten für das Lineup."
+    },
+    "groove-vs-bounce-2": {
+      "title": "Groove vs Bounce 2 — Event-Kampagne",
+      "leistung": "Event-Design & Social-Media-Design",
+      "description": "Ankündigungskampagne für die zweite Ausgabe von Groove vs Bounce: mehrteilige Instagram-Posts mit Slides, Storyformat und Facebook-Event-Bild."
+    },
+    "bob4-insta": {
+      "title": "Bob4 — Instagram-Feed & Event-Banner",
+      "leistung": "Social-Media-Design",
+      "description": "Instagram-Set für Bob4: dreiteiliges Feed-Raster, Story-Grafik und Event-Banner im gleichen Bildvokabular."
+    },
+    "starkollektiv-too-groovy-to-behave": {
+      "title": "Starkollektiv — Too Groovy To Behave",
+      "leistung": "Social-Media-Design",
+      "description": "Dreiteiliges Instagram-Feed-Raster für die Veranstaltung „Too Groovy To Behave“ des Starkollektivs — die drei Posts ergeben im Profil ein zusammenhängendes Bild."
+    },
+    "maifestival": {
+      "title": "1. Mai Festival — Poster, Flyer & Event-Grafiken",
+      "leistung": "Poster- & Event-Design",
+      "description": "Festival-Design für den 1. Mai: Lineup-Poster in A2, Flyer in A6, Instagram-Post mit Lineup, Storyformat, Facebook-Event-Bild und Website-Grafik."
+    },
+    "joyride2": {
+      "title": "Joyride 2 — Event-Design & Sticker",
+      "leistung": "Event-Design & Sticker",
+      "description": "Design für die zweite Joyride-Ausgabe: Hauptmotiv, Lineup-Post, Story sowie Sticker — davon einer mit QR-Code zur Veranstaltung."
+    },
+    "joyride-dachterasse-03-06": {
+      "title": "Joyride Dachterrasse — Ankündigungspost",
+      "leistung": "Social-Media-Design",
+      "description": "Instagram-Ankündigung für die Joyride-Dachterrassen-Ausgabe am 3. Juni."
+    },
+    "toney-17-07": {
+      "title": "Toney 17.07. — Event-Poster",
+      "leistung": "Poster-Design",
+      "description": "Poster zur Joyride-Veranstaltung mit Toney am 17. Juli."
+    },
+    "toney-animation-26-06": {
+      "title": "Toney — animierter Ankündigungspost",
+      "leistung": "Motion Design",
+      "description": "Animierter Instagram-Post für die Joyride-Ausgabe am 26. Juni — bewegte Fassung des Event-Artworks."
+    },
+    "computerklang-instagram-icon": {
+      "title": "Computerklang — Instagram-Profil-Icon",
+      "leistung": "Logo & Icon-Design",
+      "description": "Profil-Icon für Computerklang: reduzierte Marke, die auch als kleines rundes Instagram-Avatar lesbar bleibt."
+    },
+    "klangfund-intro-animation": {
+      "title": "Klangfund — Intro-Animation",
+      "leistung": "Motion Design",
+      "description": "Sieben Sekunden Intro-Animation für Klangfund — Logo-Reveal als Vorspann für Video- und Social-Content."
+    },
+    "antidote-album-cover": {
+      "title": "Antidote — Album-Cover & Spotify-Mockup",
+      "leistung": "Cover-Artwork",
+      "description": "Album-Cover für Antidote, inklusive Mockup der Darstellung auf Spotify."
+    },
+    "sopsi-album-cover": {
+      "title": "Sopsi — Album-Cover",
+      "leistung": "Cover-Artwork",
+      "description": "Album-Cover-Design für Sopsi."
+    },
+    "shelters-ep-design": {
+      "title": "Shelters — EP-Cover & Mockup",
+      "leistung": "Cover-Artwork",
+      "description": "EP-Design für Shelters: Cover in Reinzeichnung plus Mockup für die Ankündigung."
+    },
+    "weidentanz": {
+      "title": "Weidentanz — Poster",
+      "leistung": "Poster-Design",
+      "description": "Poster-Design für Weidentanz."
+    },
+    "need-printed": {
+      "title": "need printed — Poster-Serie",
+      "leistung": "Poster-Design",
+      "description": "Zwei freie Poster-Arbeiten aus der Reihe „need printed“."
+    },
+    "anton-1-poster": {
+      "title": "Anton 1 — Poster",
+      "leistung": "Poster-Design",
+      "description": "Poster-Design „Anton 1“."
+    },
+    "luwiee-sticker": {
+      "title": "Luwiee — Sticker-Design",
+      "leistung": "Sticker & Merch",
+      "description": "Sticker-Design für Luwiee."
+    },
+    "toney-wav-stickers": {
+      "title": "toney.wav — Sticker-Design",
+      "leistung": "Sticker & Merch",
+      "description": "Sticker-Design für toney.wav."
+    },
+    "schepperpeach-stickerz": {
+      "title": "Schepperpeach — Sticker-Design",
+      "leistung": "Sticker & Merch",
+      "description": "Sticker-Design für Schepperpeach."
+    },
+    "rejep-entrumpelung": {
+      "title": "Rejep Entrümpelung — Visitenkarten",
+      "leistung": "Print & Corporate Design",
+      "description": "Visitenkarten für Rejep Entrümpelung, Vorder- und Rückseite — Print-Design außerhalb des Musikbereichs."
+    },
+    "emptycloset-logo": {
+      "title": "emptycloset — Logo",
+      "leistung": "Logo & visuelle Identität",
+      "description": "Logo für die Fashion-Brand emptycloset, als Vektorzeichnung für Print und Web."
+    }
+  }
+}

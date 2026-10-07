@@ -57,3 +57,26 @@ Dock bleibt unten fixiert.
 
 Icons per Tastatur fokussierbar (`tabindex`), Enter öffnet, Escape schließt das Fenster,
 Fokusring sichtbar, Bilder mit `alt` = Dateiname.
+
+## SEO-Ebene (ergänzt)
+
+Die Desktop-Oberfläche ist vollständig JS-gerendert und damit für Suchmaschinen
+leer. Darum existiert eine zweite, statische Ebene:
+
+- `seo.json` — **redaktionell von Hand gepflegt**: Site-Metadaten, Leistungen und
+  je Projekt `title` / `leistung` / `description`. Bewusste Abweichung von der
+  „nur Ordnernamen"-Regel oben: Suchmaschinen brauchen Text. `projects.json`
+  bleibt reine Generat-Datei; die Desktop-UI zeigt weiter die Ordnernamen.
+- `scripts/build-seo.py` — merged beides und erzeugt:
+  `projekte/<slug>/index.html` (eine echte Seite je Projekt),
+  `projekte/index.html`, `leistungen/index.html`, `sitemap.xml`, `robots.txt`
+  sowie die Snippets `_seo-head.html` / `_seo-footer.html`.
+- `index.html` — die Snippets stehen zwischen den Markern
+  `SEO-HEAD:start/end` und `SEO-FOOTER:start/end` und werden **nicht von Hand**
+  bearbeitet. Der Footer ist ein aufklappbares „Info & Leistungen"-Panel unten
+  links (`<details class="sitefoot">`) mit dem indexierbaren Fließtext und
+  echten Links auf die statischen Seiten.
+- `seo.css` — Stylesheet nur für die Textseiten.
+
+Nach jedem neuen Projekt: Eintrag in `seo.json` ergänzen, dann
+`python3 scripts/build-seo.py` laufen lassen und committen.
